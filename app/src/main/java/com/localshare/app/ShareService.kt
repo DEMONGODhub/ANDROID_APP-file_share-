@@ -30,7 +30,12 @@ class ShareService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        goForeground()
+        try {
+            goForeground()
+        } catch (e: Exception) { // e.g. Android refuses a background restart; the user can reopen the app
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val err = ShareController.start()
         if (err != null) {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -62,10 +67,10 @@ class ShareService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, ShareService::class.java).setAction(ACTION_STOP), flags)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_folder)
-            .setContentTitle("LocalShare")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setContentIntent(open)
-            .addAction(0, "Stop", stop)
+            .addAction(0, getString(R.string.stop), stop)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()

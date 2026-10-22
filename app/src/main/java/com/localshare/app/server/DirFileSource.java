@@ -2,8 +2,10 @@ package com.localshare.app.server;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,5 +49,25 @@ public final class DirFileSource implements FileSource {
         FileInputStream in = new FileInputStream(f);
         if (offset > 0) in.getChannel().position(offset);
         return in;
+    }
+
+    @Override public OutputStream create(List<String> dir, String name) throws IOException {
+        File d = resolve(dir);
+        if (d == null || !d.isDirectory()) throw new IOException("no such folder");
+        List<String> full = new ArrayList<String>(dir);
+        full.add(name);
+        File f = resolve(full);
+        if (f == null) throw new IOException("outside folder");
+        if (!f.createNewFile()) throw new IOException("exists");
+        return new FileOutputStream(f);
+    }
+
+    @Override public boolean delete(List<String> path) throws IOException {
+        File f = resolve(path);
+        return f != null && f.isFile() && f.delete();
+    }
+
+    @Override public byte[] thumbnail(List<String> path, int maxPx) {
+        return null;
     }
 }

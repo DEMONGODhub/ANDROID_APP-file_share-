@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LocalShare</string>
+    <string name="stop">Stop</string>
 </resources>

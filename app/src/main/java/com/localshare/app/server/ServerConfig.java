@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Live, thread-safe settings + block list. Changes apply immediately to the running server. */
+/** Live, thread-safe settings and block list. Changes apply immediately to the running server. */
 public final class ServerConfig {
     public static final class Block {
         public final String id, name, ip, device;
@@ -15,12 +15,28 @@ public final class ServerConfig {
             this.ip = ip == null ? "" : ip;
             this.device = device == null ? "" : device;
         }
+
+        @Override public boolean equals(Object o) {
+            if (!(o instanceof Block)) return false;
+            Block b = (Block) o;
+            return id.equals(b.id) && name.equals(b.name) && ip.equals(b.ip) && device.equals(b.device);
+        }
+
+        @Override public int hashCode() {
+            return id.hashCode();
+        }
     }
 
     public volatile String password = "";
     public volatile int maxClients = 5;
     public volatile boolean gameEnabled = true;
-    /** Called (from any thread) whenever the block list changes. */
+    public volatile boolean allowUploads = false;
+    public volatile boolean allowDelete = false;
+    /** Guests sign in again this long after joining; 0 means never. */
+    public volatile long sessionMs = 6L * 3600000L;
+    public volatile long maxUploadBytes = 2L * 1024 * 1024 * 1024;
+    public final ActivityLog log = new ActivityLog();
+    /** Called from any thread whenever the block list changes. */
     public volatile Runnable onChange;
 
     private final ConcurrentHashMap<String, Block> blocks = new ConcurrentHashMap<String, Block>();

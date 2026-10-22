@@ -1,7 +1,7 @@
 <resources>
     <!-- Window background matches the Compose theme so there is no white flash on launch. -->
     <style name="Theme.LocalShare" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0B0F14</item>
+        <item name="android:windowBackground">#17140F</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

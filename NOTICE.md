@@ -1,0 +1,14 @@
+# Notice
+
+LocalShare v2.0.0, Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved. See `LICENSE`.
+
+## Third-party components
+| Component | Used for | License |
+|---|---|---|
+| PDF.js (Mozilla), `assets/web/pdf*.js` | PDF viewer page | Apache-2.0 |
+| AndroidX, Jetpack Compose, Material 3 (Google) | App interface | Apache-2.0 |
+| Kotlin, kotlinx.coroutines (JetBrains) | Language and concurrency | Apache-2.0 |
+| ZXing core | QR codes | Apache-2.0 |
+
+The v2 feature ideas (login with session time, upload/download control, activity log, ZIP, QR code)
+were inspired by the public project HTTP FS by tiarait. No code from it is used.

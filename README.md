@@ -1,23 +1,30 @@
-# LocalShare
+# LocalShare v2
 
-Host any folder from your Android phone as a website on your Wi-Fi / hotspot.
-Android 5.0+ (API 21+). Kotlin + Jetpack Compose (Material 3), zero third-party server libraries.
+Share folders from your Android phone as a website on your Wi-Fi or hotspot. Android 5.0+ (API 21+).
+Kotlin + Jetpack Compose (Material 3). The server is pure Java with no third-party libraries.
+
+## What's new in v2
+- Guests first **choose which shared folder** to open; add as many folders as you like.
+- Photos and PDFs open in a **new tab**. A **⋮ menu** on every item: open, download, copy link, delete.
+- Smooth browsing: server thumbnails, lazy loading, chunked lists, stale-while-revalidate listings.
+- Guest controls: upload, delete, session length, password, max devices, block by device. Activity log.
+- Keeps sharing while the phone is locked (foreground service, wake and Wi-Fi locks) with plain-language permission help.
+- **Full-screen** Orb Arena game: server-authoritative, minimap, leaderboard, touch joystick and boost.
+- Per-device help (?) and **PC keyboard shortcuts** (press `?` on a computer).
+- Donate dialog with ₹1–₹10 quick amounts (UPI QR).
 
 ## Build
-1. Android Studio (latest) -> Open this folder -> let Gradle sync (accept any "upgrade AGP" prompt).
-2. Run on a phone, or Build > Build APK(s).
+Android Studio (latest) -> Open this folder -> Gradle sync -> Run. For smoothness test a **release** build (debug Compose is slow).
 
-## Use
-Choose folder -> Start sharing -> open the shown `http://IP:8080` on any device on the same network.
-Settings: password, max devices, port, game on/off. Devices tab: kick / block / unblock.
-"Browse files & play the game here" opens the same site inside the app as host (no password).
+## Test the server on a desktop
+```
+javac --release 8 -d out $(find app/src/main/java/com/localshare/app/server tools/test -name '*.java')
+java -cp out Harness test "$PWD/app/src/main/assets/web"
+```
 
 ## Layout
-- `app/src/main/java/.../server/` pure-Java server (HTTP, Range streaming, sessions, block list, WebSocket game). No Android imports.
-- `app/src/main/assets/web/index.html` the website guests see (same colour tokens as `ui/Theme.kt`).
-- `tools/test/Harness.java` desktop test of the server core:
-  `javac -d out app/src/main/java/com/localshare/app/server/*.java tools/test/Harness.java`
-  `java -cp out Harness test <some-folder> app/src/main/assets/web`
+- `app/src/main/java/.../server/` pure-Java HTTP + WebSocket server (no Android imports).
+- `app/src/main/assets/web/` the website guests see (`index.html`, `pdfview.html`, PDF.js).
+- `app/src/main/java/.../*.kt` the Compose app; `ui/Theme.kt` and the `:root{}` block of `index.html` share one palette.
 
-## Re-skin
-Edit the colour tokens in `ui/Theme.kt` and the `:root{...}` block at the top of `assets/web/index.html`.
+Copyright (c) 2026 DEMON_GOD. All rights reserved. See `LICENSE` and `NOTICE.md`.

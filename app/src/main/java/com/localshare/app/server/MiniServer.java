@@ -18,16 +18,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
- * Tiny dependency-free HTTP/1.1 + WebSocket server (JDK sockets only, Java 8 API level)
+ * Small dependency-free HTTP/1.1 and WebSocket server on plain JDK sockets and the Java 8 API,
  * so it behaves the same on every Android version from 5.0 up.
  */
 public final class MiniServer {
@@ -62,15 +67,42 @@ public final class MiniServer {
 
     private static final class Req {
         String method, path, ip;
+        long bodyLen = -1; // set instead of reading the body, for streamed uploads
         final Map<String, String> q = new HashMap<String, String>();
         final Map<String, String> h = new HashMap<String, String>();
         final Map<String, String> form = new HashMap<String, String>();
     }
 
+    /** Byte-capped least-recently-used cache of generated thumbnails. */
+    private static final class ThumbCache {
+        private final long cap;
+        private long size;
+        private final LinkedHashMap<String, byte[]> map = new LinkedHashMap<String, byte[]>(64, 0.75f, true);
+
+        ThumbCache(long cap) {
+            this.cap = cap;
+        }
+
+        synchronized byte[] get(String k) {
+            return map.get(k);
+        }
+
+        synchronized void put(String k, byte[] v) {
+            if (v.length > cap / 4) return;
+            byte[] old = map.put(k, v);
+            if (old != null) size -= old.length;
+            size += v.length;
+            Iterator<Map.Entry<String, byte[]>> it = map.entrySet().iterator();
+            while (size > cap && it.hasNext()) {
+                size -= it.next().getValue().length;
+                it.remove();
+            }
+        }
+    }
+
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final Charset LATIN1 = Charset.forName("ISO-8859-1");
-    private static final long ACTIVE_MS = 30000L;        // a device "occupies a slot" while it pings within 30s
-    private static final long EXPIRE_MS = 6L * 3600000L; // login stays valid 6h after last activity
+    private static final long ACTIVE_MS = 30000L; // a device occupies a slot while it pings within 30s
     private static final String WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
     private final ServerConfig cfg;
@@ -78,6 +110,8 @@ public final class MiniServer {
     private final AssetProvider assets;
     private final ConcurrentHashMap<String, Session> sessions = new ConcurrentHashMap<String, Session>();
     private final ConcurrentHashMap<String, long[]> fails = new ConcurrentHashMap<String, long[]>();
+    private final ThumbCache thumbs = new ThumbCache(12L * 1024 * 1024);
+    private final Semaphore thumbSlots = new Semaphore(3); // decoding photos is memory-hungry on low-end phones
     private final SecureRandom rnd = new SecureRandom();
     private final String hostToken = hex(16);
     private ServerSocket ss;
@@ -92,8 +126,6 @@ public final class MiniServer {
         this.assets = assets;
     }
 
-    // ---------------------------------------------------------------- lifecycle / host API
-
     public void setFileSource(FileSource f) {
         fs = f;
     }
@@ -106,7 +138,7 @@ public final class MiniServer {
         ss = s;
         this.port = s.getLocalPort();
         pool = new ThreadPoolExecutor(4, 160, 30, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
-        game = new GameHub(cfg, pool);
+        game = new GameHub(cfg, pool, true);
         running = true;
         Thread t = new Thread(new Runnable() {
             @Override public void run() {
@@ -132,12 +164,12 @@ public final class MiniServer {
         return port;
     }
 
-    /** Secret the in-app browser uses to enter as host (accepted from loopback only). */
+    /** Secret the in-app browser uses to enter as host; accepted from loopback only. */
     public String hostToken() {
         return hostToken;
     }
 
-    /** Devices currently connected (active in the last 30s), host excluded. */
+    /** Devices active in the last 30 seconds, host excluded. */
     public List<SessionInfo> sessions() {
         long now = System.currentTimeMillis();
         List<SessionInfo> out = new ArrayList<SessionInfo>();
@@ -151,19 +183,25 @@ public final class MiniServer {
     }
 
     public void kick(String id) {
-        for (Session s : sessions.values()) if (s.id.equals(id)) drop(s);
+        for (Session s : sessions.values()) {
+            if (s.id.equals(id)) {
+                cfg.log.add("kick", s.name, s.ip, "");
+                drop(s);
+            }
+        }
     }
 
     public void kickAll() {
         for (Session s : sessions.values()) if (!s.host) drop(s);
     }
 
-    /** Kick and block by IP address AND browser device-id, so rejoining from a new tab fails too. */
+    /** Kicks and blocks by IP address and by browser device id, so a new tab can't slip back in. */
     public void block(String id) {
         Session t = null;
         for (Session s : sessions.values()) if (s.id.equals(id)) t = s;
         if (t == null || t.host) return;
         cfg.addBlock(new ServerConfig.Block(hex(6), t.name, t.ip, t.device));
+        cfg.log.add("block", t.name, t.ip, "");
         for (Session s : sessions.values()) {
             if (!s.host && (s.ip.equals(t.ip) || (t.device.length() > 0 && t.device.equals(s.device)))) drop(s);
         }
@@ -173,8 +211,6 @@ public final class MiniServer {
         sessions.remove(s.token);
         if (game != null) game.drop(s.token);
     }
-
-    // ---------------------------------------------------------------- accept / connection loop
 
     private void acceptLoop() {
         while (running) {
@@ -226,8 +262,6 @@ public final class MiniServer {
             }
         }
     }
-
-    // ---------------------------------------------------------------- parsing
 
     private static String readLine(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -286,6 +320,10 @@ public final class MiniServer {
             } catch (NumberFormatException e) {
                 return null;
             }
+            if (len >= 0 && r.method.equals("POST") && r.path.equals("/api/upload")) {
+                r.bodyLen = len;
+                return r;
+            }
             if (len < 0 || len > 4096) throw new IOException("body too large");
             byte[] b = new byte[len];
             int o = 0;
@@ -299,20 +337,22 @@ public final class MiniServer {
         return r;
     }
 
-    // ---------------------------------------------------------------- responses
-
     private static String reason(int c) {
         switch (c) {
             case 200: return "OK";
             case 101: return "Switching Protocols";
             case 206: return "Partial Content";
+            case 304: return "Not Modified";
             case 400: return "Bad Request";
             case 401: return "Unauthorized";
             case 403: return "Forbidden";
             case 404: return "Not Found";
             case 405: return "Method Not Allowed";
+            case 409: return "Conflict";
+            case 413: return "Payload Too Large";
             case 416: return "Range Not Satisfiable";
             case 429: return "Too Many Requests";
+            case 503: return "Service Unavailable";
             default: return "Error";
         }
     }
@@ -320,7 +360,7 @@ public final class MiniServer {
     private static void head(OutputStream out, int code, String ctype, long len, String... extra) throws IOException {
         StringBuilder h = new StringBuilder("HTTP/1.1 ").append(code).append(' ').append(reason(code)).append("\r\n");
         if (ctype != null) h.append("Content-Type: ").append(ctype).append("\r\n");
-        h.append("Content-Length: ").append(len).append("\r\nX-Content-Type-Options: nosniff\r\n");
+        h.append("Content-Length: ").append(len).append("\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: SAMEORIGIN\r\nReferrer-Policy: no-referrer\r\n");
         for (String e : extra) h.append(e).append("\r\n");
         h.append("\r\n");
         out.write(h.toString().getBytes(LATIN1));
@@ -342,8 +382,6 @@ public final class MiniServer {
         return "{\"error\":" + Util.q(msg) + "}";
     }
 
-    // ---------------------------------------------------------------- sessions
-
     private static String cookie(Req r, String name) {
         String c = r.h.get("cookie");
         if (c == null) return null;
@@ -359,8 +397,8 @@ public final class MiniServer {
         if (t == null) return null;
         Session s = sessions.get(t);
         if (s == null) return null;
-        if (System.currentTimeMillis() - s.lastSeen > EXPIRE_MS) {
-            sessions.remove(t);
+        if (!s.host && cfg.sessionMs > 0 && System.currentTimeMillis() - s.since > cfg.sessionMs) {
+            drop(s);
             return null;
         }
         return s;
@@ -371,6 +409,14 @@ public final class MiniServer {
         int n = 0;
         for (Session s : sessions.values()) if (!s.host && s != except && now - s.lastSeen < ACTIVE_MS) n++;
         return n;
+    }
+
+    private boolean canUpload(Session s) {
+        return s != null && (s.host || cfg.allowUploads);
+    }
+
+    private boolean canDelete(Session s) {
+        return s != null && (s.host || cfg.allowDelete);
     }
 
     /** Returns the session, or writes an error response and returns null. */
@@ -408,14 +454,22 @@ public final class MiniServer {
         return ip.equals("127.0.0.1") || ip.equals("::1") || ip.equals("0:0:0:0:0:0:0:1");
     }
 
-    private void login(Req r, OutputStream out, boolean isHead) throws IOException {
+    /** Browsers always send Origin on POST and WebSocket; a mismatch means another site is driving the request. */
+    private static boolean sameOrigin(Req r) {
+        String origin = r.h.get("origin"), host = r.h.get("host");
+        if (origin == null) return true;
+        int i = origin.indexOf("//");
+        return host != null && i >= 0 && origin.substring(i + 2).equalsIgnoreCase(host);
+    }
+
+    private void login(Req r, OutputStream out) throws IOException {
         String device = Util.cleanId(r.form.get("device"));
         String name = Util.cleanName(r.form.get("name"));
         boolean host = false;
         String ht = r.form.get("hostToken");
         if (ht != null && ht.length() > 0) {
             if (!isLoopback(r.ip) || !Util.safeEq(ht, hostToken)) {
-                json(out, isHead, 403, err("bad host token"));
+                json(out, false, 403, err("bad host token"));
                 return;
             }
             host = true;
@@ -423,12 +477,14 @@ public final class MiniServer {
         long now = System.currentTimeMillis();
         if (!host) {
             if (cfg.isBlocked(r.ip, device)) {
-                json(out, isHead, 403, err("blocked"));
+                cfg.log.add("blocked", name, r.ip, "login refused");
+                json(out, false, 403, err("blocked"));
                 return;
             }
             long[] f = fails.get(r.ip);
             if (f != null && f[1] > now) {
-                json(out, isHead, 429, "{\"error\":\"Too many wrong passwords\",\"retry\":" + ((f[1] - now) / 1000 + 1) + "}");
+                cfg.log.add("denied", name, r.ip, "locked out");
+                json(out, false, 429, "{\"error\":\"Too many wrong passwords\",\"retry\":" + ((f[1] - now) / 1000 + 1) + "}");
                 return;
             }
             String pw = cfg.password;
@@ -448,27 +504,28 @@ public final class MiniServer {
                         g[0] = 0;
                     }
                 }
-                json(out, isHead, 401, err("Wrong password"));
+                cfg.log.add("denied", name, r.ip, "wrong password");
+                json(out, false, 401, err("Wrong password"));
                 return;
             }
             fails.remove(r.ip);
             if (device.length() > 0) for (Session s : sessions.values()) if (!s.host && device.equals(s.device)) drop(s);
             if (activeCount(null) >= cfg.maxClients) {
-                json(out, isHead, 429, "{\"error\":\"Room is full\",\"max\":" + cfg.maxClients + "}");
+                cfg.log.add("full", name, r.ip, "room full");
+                json(out, false, 429, "{\"error\":\"Room is full\",\"max\":" + cfg.maxClients + "}");
                 return;
             }
         } else {
             for (Session s : sessions.values()) if (s.host) drop(s);
         }
         if (name.length() == 0) name = host ? "Host" : "Guest " + (100 + rnd.nextInt(900));
+        if (!host) cfg.log.add("join", name, r.ip, "");
         String token = hex(16);
         Session s = new Session(token, hex(4), name, r.ip, device, host);
         sessions.put(token, s);
-        json(out, isHead, 200, "{\"ok\":true,\"name\":" + Util.q(name) + ",\"host\":" + host + "}",
-                "Set-Cookie: ls_token=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=21600");
+        json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + ",\"host\":" + host + "}",
+                "Set-Cookie: ls_token=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400");
     }
-
-    // ---------------------------------------------------------------- routing
 
     /** @return true when the connection may be reused for another request */
     private boolean route(Req r, Socket sock, InputStream in, OutputStream out) throws IOException {
@@ -484,17 +541,18 @@ public final class MiniServer {
         if (get && (path.equals("/") || path.equals("/index.html"))) return asset(out, isHead, "index.html", "text/html; charset=utf-8", "no-cache");
         if (get && path.startsWith("/static/")) {
             String n = path.substring(8);
-            return asset(out, isHead, n, n.endsWith(".js") ? "application/javascript; charset=utf-8" : "application/octet-stream", "public, max-age=86400");
+            return asset(out, isHead, n, staticType(n), n.endsWith(".html") ? "no-cache" : "public, max-age=86400");
         }
         if (get && path.equals("/api/info")) {
             Session s = sessionOf(r);
             json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameEnabled\":" + cfg.gameEnabled
                     + ",\"max\":" + cfg.maxClients + ",\"active\":" + activeCount(null) + ",\"authed\":" + (s != null)
-                    + ",\"name\":" + Util.q(s == null ? "" : s.name) + ",\"host\":" + (s != null && s.host) + "}");
+                    + ",\"name\":" + Util.q(s == null ? "" : s.name) + ",\"host\":" + (s != null && s.host)
+                    + ",\"canUpload\":" + canUpload(s) + ",\"canDelete\":" + canDelete(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
             return true;
         }
         if (post && path.equals("/api/login")) {
-            login(r, out, false);
+            login(r, out);
             return true;
         }
         if (post && path.equals("/api/logout")) {
@@ -504,8 +562,9 @@ public final class MiniServer {
             return true;
         }
         if (get && path.equals("/api/ping")) {
-            if (auth(r, out, isHead) == null) return true;
-            json(out, isHead, 200, "{\"ok\":true}");
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            json(out, isHead, 200, "{\"ok\":true,\"up\":" + canUpload(s) + ",\"del\":" + canDelete(s) + "}");
             return true;
         }
         if (get && path.equals("/api/list")) {
@@ -513,14 +572,41 @@ public final class MiniServer {
             return list(r, out, isHead);
         }
         if (get && path.equals("/api/file")) {
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            return file(r, s, out, isHead);
+        }
+        if (get && path.equals("/api/thumb")) {
             if (auth(r, out, isHead) == null) return true;
-            return file(r, out, isHead);
+            return thumb(r, out, isHead);
         }
-        if (get && path.equals("/ws")) {
-            return websocket(r, sock, in, out);
+        if (get && path.equals("/api/zip")) {
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            return zip(r, s, out);
         }
+        if (post && path.equals("/api/upload")) {
+            Session s = auth(r, out, false);
+            if (s == null) return false;
+            return upload(r, s, in, out);
+        }
+        if (post && path.equals("/api/delete")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            return delete(r, s, out);
+        }
+        if (get && path.equals("/ws")) return websocket(r, sock, in, out);
         json(out, isHead, 404, err("not found"));
         return true;
+    }
+
+    private static String staticType(String n) {
+        if (n.endsWith(".js")) return "application/javascript; charset=utf-8";
+        if (n.endsWith(".html")) return "text/html; charset=utf-8";
+        if (n.endsWith(".css")) return "text/css; charset=utf-8";
+        if (n.endsWith(".svg")) return "image/svg+xml";
+        if (n.endsWith(".png")) return "image/png";
+        return "application/octet-stream";
     }
 
     private boolean asset(OutputStream out, boolean isHead, String name, String ctype, String cache) throws IOException {
@@ -533,7 +619,7 @@ public final class MiniServer {
         return true;
     }
 
-    /** Splits and validates a user path. Returns null when it tries to escape the folder. */
+    /** Splits and validates a user path. Returns null when it tries to escape the shared folders. */
     private static List<String> segs(String p) {
         List<String> out = new ArrayList<String>();
         if (p == null) return out;
@@ -543,6 +629,18 @@ public final class MiniServer {
             out.add(s);
         }
         return out;
+    }
+
+    private static String pathStr(List<String> sg) {
+        StringBuilder b = new StringBuilder();
+        for (String x : sg) b.append(b.length() > 0 ? "/" : "").append(x);
+        return b.toString();
+    }
+
+    private static List<String> child(List<String> dir, String name) {
+        List<String> p = new ArrayList<String>(dir);
+        p.add(name);
+        return p;
     }
 
     private boolean list(Req r, OutputStream out, boolean isHead) throws IOException {
@@ -561,21 +659,17 @@ public final class MiniServer {
             json(out, isHead, 404, err("not found"));
             return true;
         }
-        StringBuilder sb = new StringBuilder("{\"path\":");
-        StringBuilder p = new StringBuilder();
-        for (String s : sg) p.append(p.length() > 0 ? "/" : "").append(s);
-        sb.append(Util.q(p.toString())).append(",\"entries\":[");
+        StringBuilder sb = new StringBuilder("{\"path\":").append(Util.q(pathStr(sg))).append(",\"entries\":[");
         boolean first = true;
         for (FileSource.Entry e : es) {
-            if (e.name.startsWith(".")) continue; // hide dotfiles
+            if (e.name.startsWith(".")) continue;
             if (!first) sb.append(',');
             first = false;
             sb.append("{\"n\":").append(Util.q(e.name)).append(",\"d\":").append(e.dir ? 1 : 0)
                     .append(",\"s\":").append(e.size).append(",\"m\":").append(e.mtime)
                     .append(",\"k\":").append(Util.q(e.dir ? "dir" : Util.kind(e.name))).append('}');
         }
-        sb.append("]}");
-        json(out, isHead, 200, sb.toString());
+        json(out, isHead, 200, sb.append("]}").toString());
         return true;
     }
 
@@ -588,7 +682,7 @@ public final class MiniServer {
         return b.toString();
     }
 
-    private boolean file(Req r, OutputStream out, boolean isHead) throws IOException {
+    private boolean file(Req r, Session s, OutputStream out, boolean isHead) throws IOException {
         List<String> sg = segs(r.q.get("path"));
         if (sg == null || sg.isEmpty()) {
             json(out, isHead, 400, err("bad path"));
@@ -607,7 +701,7 @@ public final class MiniServer {
         String name = e.name;
         String ext = Util.ext(name);
         String mime = Util.mime(name);
-        // never let shared HTML/SVG run as a page on our origin
+        // shared pages must never run as a page on this origin
         if (ext.equals("html") || ext.equals("htm") || ext.equals("svg") || ext.equals("xml")) mime = "text/plain; charset=utf-8";
         boolean dl = "1".equals(r.q.get("dl"));
         long size = e.size, start = 0, end = size - 1;
@@ -617,7 +711,7 @@ public final class MiniServer {
             String spec = rg.substring(6).trim();
             int dash = spec.indexOf('-');
             try {
-                if (dash == 0) { // suffix: last N bytes
+                if (dash == 0) {
                     long n = Long.parseLong(spec.substring(1));
                     start = Math.max(0, size - n);
                 } else if (dash > 0) {
@@ -640,16 +734,16 @@ public final class MiniServer {
         hdr.add("Accept-Ranges: bytes");
         hdr.add("Cache-Control: private, max-age=60");
         if (partial) hdr.add("Content-Range: bytes " + start + "-" + end + "/" + size);
-        String disp = dl ? "attachment" : "inline";
         String enc = URLEncoder.encode(name, "UTF-8").replace("+", "%20");
-        hdr.add("Content-Disposition: " + disp + "; filename=\"" + ascii(name) + "\"; filename*=UTF-8''" + enc);
+        hdr.add("Content-Disposition: " + (dl ? "attachment" : "inline") + "; filename=\"" + ascii(name) + "\"; filename*=UTF-8''" + enc);
+        if (!s.host && !isHead && (!partial || start == 0)) cfg.log.add(dl ? "download" : "view", s.name, s.ip, pathStr(sg));
         head(out, partial ? 206 : 200, dl ? "application/octet-stream" : mime, len, hdr.toArray(new String[0]));
         if (isHead || len == 0) return true;
         InputStream is;
         try {
             is = fs.open(sg, start);
         } catch (IOException ex) {
-            return false; // headers already sent; closing is the only honest signal
+            return false; // headers are already sent; closing the connection is the only honest signal
         }
         try {
             byte[] buf = new byte[65536];
@@ -669,6 +763,279 @@ public final class MiniServer {
         }
     }
 
+    private boolean thumb(Req r, OutputStream out, boolean isHead) throws IOException {
+        List<String> sg = segs(r.q.get("path"));
+        if (sg == null || sg.isEmpty()) {
+            json(out, isHead, 400, err("bad path"));
+            return true;
+        }
+        FileSource.Entry e;
+        try {
+            e = fs.stat(sg);
+        } catch (IOException ex) {
+            e = null;
+        }
+        String kind = e == null ? "" : Util.kind(e.name);
+        if (e == null || e.dir || !(kind.equals("image") || kind.equals("video") || kind.equals("pdf"))) {
+            json(out, isHead, 404, err("no thumbnail"));
+            return true;
+        }
+        int w = 320;
+        try {
+            w = Integer.parseInt(r.q.get("w"));
+        } catch (RuntimeException ignored) {
+        }
+        w = Math.max(96, Math.min(640, w));
+        String etag = "\"" + e.mtime + "-" + e.size + "-" + w + "\"";
+        String cache = "Cache-Control: private, max-age=86400";
+        if (etag.equals(r.h.get("if-none-match"))) {
+            head(out, 304, null, 0, "ETag: " + etag, cache);
+            return true;
+        }
+        String key = pathStr(sg) + "|" + w + "|" + e.mtime + "|" + e.size;
+        byte[] jpg = thumbs.get(key);
+        if (jpg == null) {
+            try {
+                if (!thumbSlots.tryAcquire(8, TimeUnit.SECONDS)) {
+                    json(out, isHead, 503, err("busy"));
+                    return true;
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            try {
+                jpg = fs.thumbnail(sg, w);
+            } catch (IOException ex) {
+                jpg = null;
+            } catch (RuntimeException ex) {
+                jpg = null;
+            } finally {
+                thumbSlots.release();
+            }
+            if (jpg != null) thumbs.put(key, jpg);
+        }
+        if (jpg == null) {
+            json(out, isHead, 404, err("no thumbnail"));
+            return true;
+        }
+        send(out, isHead, 200, "image/jpeg", jpg, "ETag: " + etag, cache);
+        return true;
+    }
+
+    private boolean zip(Req r, Session s, OutputStream out) throws IOException {
+        List<String> sg = segs(r.q.get("path"));
+        if (sg == null) {
+            json(out, false, 400, err("bad path"));
+            return true;
+        }
+        FileSource.Entry e;
+        try {
+            e = fs.stat(sg);
+        } catch (IOException ex) {
+            e = null;
+        }
+        if (e == null || !e.dir) {
+            json(out, false, 404, err("not found"));
+            return true;
+        }
+        String fname = (sg.isEmpty() ? "share" : sg.get(sg.size() - 1)) + ".zip";
+        String enc = URLEncoder.encode(fname, "UTF-8").replace("+", "%20");
+        // no Content-Length: the archive is streamed, and closing the connection marks the end
+        out.write(("HTTP/1.1 200 OK\r\nContent-Type: application/zip\r\nContent-Disposition: attachment; filename=\""
+                + ascii(fname) + "\"; filename*=UTF-8''" + enc
+                + "\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n").getBytes(LATIN1));
+        if (!s.host) cfg.log.add("zip", s.name, s.ip, sg.isEmpty() ? "(all folders)" : pathStr(sg));
+        ZipOutputStream zo = new ZipOutputStream(out);
+        zo.setLevel(1); // phones compress slowly and most media is already compressed
+        try {
+            addDir(zo, sg, "", 0, new int[1]);
+            zo.finish();
+            out.flush();
+        } catch (IOException ignored) {
+            // the guest cancelled the download
+        }
+        return false;
+    }
+
+    private void addDir(ZipOutputStream zo, List<String> dir, String prefix, int depth, int[] count) throws IOException {
+        if (depth > 20) return;
+        List<FileSource.Entry> es = fs.list(dir);
+        if (es == null) return;
+        byte[] buf = new byte[65536];
+        for (FileSource.Entry e : es) {
+            if (e.name.startsWith(".") || count[0] >= 20000) continue;
+            List<String> p = child(dir, e.name);
+            if (e.dir) {
+                addDir(zo, p, prefix + e.name + "/", depth + 1, count);
+                continue;
+            }
+            InputStream is;
+            try {
+                is = fs.open(p, 0);
+            } catch (IOException ex) {
+                continue;
+            }
+            count[0]++;
+            try {
+                ZipEntry ze = new ZipEntry(prefix + e.name);
+                if (e.mtime > 0) ze.setTime(e.mtime);
+                zo.putNextEntry(ze);
+                int n;
+                while ((n = is.read(buf)) > 0) zo.write(buf, 0, n);
+                zo.closeEntry();
+            } finally {
+                try {
+                    is.close();
+                } catch (IOException ignored) {
+                }
+            }
+        }
+    }
+
+    private static String cleanFileName(String n) {
+        if (n == null) return null;
+        n = n.trim();
+        if (n.length() == 0 || n.length() > 150 || n.startsWith(".")) return null;
+        for (int i = 0; i < n.length(); i++) {
+            char c = n.charAt(i);
+            if (c < 0x20 || c == 0x7f || c == '/' || c == '\\') return null;
+        }
+        return n;
+    }
+
+    private static String withSuffix(String name, int i) {
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) + " (" + i + ")" + name.substring(dot) : name + " (" + i + ")";
+    }
+
+    /** Returns true only when the request body was fully read, so the connection can be reused. */
+    private boolean upload(Req r, Session s, InputStream in, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return false;
+        }
+        if (!canUpload(s)) {
+            json(out, false, 403, err("Uploads are turned off by the host"));
+            return false;
+        }
+        List<String> dir = segs(r.q.get("path"));
+        String name = cleanFileName(r.q.get("name"));
+        if (dir == null || name == null) {
+            json(out, false, 400, err("Bad file name"));
+            return false;
+        }
+        if (dir.isEmpty()) {
+            json(out, false, 400, err("Open a folder first"));
+            return false;
+        }
+        if (r.bodyLen < 0) {
+            json(out, false, 400, err("Length required"));
+            return false;
+        }
+        long len = r.bodyLen;
+        if (len > cfg.maxUploadBytes) {
+            json(out, false, 413, err("File is too large"));
+            return false;
+        }
+        FileSource.Entry d;
+        try {
+            d = fs.stat(dir);
+        } catch (IOException ex) {
+            d = null;
+        }
+        if (d == null || !d.dir) {
+            json(out, false, 404, err("Folder not found"));
+            return false;
+        }
+        String stored = name;
+        for (int i = 1; fs.stat(child(dir, stored)) != null; i++) {
+            if (i > 99) {
+                json(out, false, 409, err("Too many files with that name"));
+                return false;
+            }
+            stored = withSuffix(name, i);
+        }
+        OutputStream os;
+        try {
+            os = fs.create(dir, stored);
+        } catch (IOException ex) {
+            json(out, false, 500, err("Cannot write to this folder"));
+            return false;
+        }
+        boolean complete = false;
+        try {
+            byte[] buf = new byte[65536];
+            long left = len;
+            while (left > 0) {
+                int n = in.read(buf, 0, (int) Math.min(buf.length, left));
+                if (n < 0) break;
+                os.write(buf, 0, n);
+                left -= n;
+            }
+            complete = left == 0;
+        } finally {
+            try {
+                os.close();
+            } catch (IOException ignored) {
+            }
+            if (!complete) {
+                try {
+                    fs.delete(child(dir, stored));
+                } catch (IOException ignored) {
+                }
+            }
+        }
+        if (!complete) return false;
+        if (!s.host) cfg.log.add("upload", s.name, s.ip, pathStr(child(dir, stored)));
+        json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(stored) + ",\"size\":" + len + "}");
+        return true;
+    }
+
+    private boolean delete(Req r, Session s, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return true;
+        }
+        if (!canDelete(s)) {
+            json(out, false, 403, err("Deleting is turned off by the host"));
+            return true;
+        }
+        String p = r.form.get("path");
+        List<String> sg = segs(p == null ? r.q.get("path") : p);
+        if (sg == null || sg.isEmpty()) {
+            json(out, false, 400, err("bad path"));
+            return true;
+        }
+        FileSource.Entry e;
+        try {
+            e = fs.stat(sg);
+        } catch (IOException ex) {
+            e = null;
+        }
+        if (e == null) {
+            json(out, false, 404, err("not found"));
+            return true;
+        }
+        if (e.dir) {
+            json(out, false, 400, err("Only files can be deleted"));
+            return true;
+        }
+        boolean ok;
+        try {
+            ok = fs.delete(sg);
+        } catch (IOException ex) {
+            ok = false;
+        }
+        if (!ok) {
+            json(out, false, 500, err("Could not delete this file"));
+            return true;
+        }
+        cfg.log.add("delete", s.name, s.ip, pathStr(sg));
+        json(out, false, 200, "{\"ok\":true}");
+        return true;
+    }
+
     private boolean websocket(Req r, Socket sock, InputStream in, OutputStream out) throws IOException {
         String up = r.h.get("upgrade");
         String key = r.h.get("sec-websocket-key");
@@ -676,14 +1043,10 @@ public final class MiniServer {
             json(out, false, 400, err("websocket expected"));
             return false;
         }
-        // cookie auth + WebSocket => must reject cross-site pages (CSWSH)
-        String origin = r.h.get("origin"), host = r.h.get("host");
-        if (origin != null) {
-            int i = origin.indexOf("//");
-            if (host == null || i < 0 || !origin.substring(i + 2).equalsIgnoreCase(host)) {
-                json(out, false, 403, err("origin"));
-                return false;
-            }
+        // the cookie authenticates the socket, so another site's page must not be able to open it
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return false;
         }
         Session s = auth(r, out, false);
         if (s == null) return false;

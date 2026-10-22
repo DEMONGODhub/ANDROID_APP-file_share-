@@ -6,9 +6,27 @@ import com.localshare.app.server.ServerConfig
 class Prefs(ctx: Context) {
     private val sp = ctx.getSharedPreferences("localshare", Context.MODE_PRIVATE)
 
-    var folderUri: String?
-        get() = sp.getString("folder", null)
-        set(v) = sp.edit().putString("folder", v).apply()
+    /** Shared folders (tree URIs), in the order they were added. */
+    var folders: List<String>
+        get() {
+            val saved = (sp.getString("folders", null) ?: "").lines().filter { it.isNotBlank() }
+            val legacy = sp.getString("folder", null)
+            return if (saved.isEmpty() && legacy != null) listOf(legacy) else saved
+        }
+        set(v) = sp.edit().putString("folders", v.joinToString("\n")).remove("folder").apply()
+
+    var allowUploads: Boolean
+        get() = sp.getBoolean("uploads", false)
+        set(v) = sp.edit().putBoolean("uploads", v).apply()
+
+    var allowDelete: Boolean
+        get() = sp.getBoolean("delete", false)
+        set(v) = sp.edit().putBoolean("delete", v).apply()
+
+    /** How long a guest stays signed in, in hours; 0 means until the host stops sharing. */
+    var sessionHours: Int
+        get() = sp.getInt("session_h", 6)
+        set(v) = sp.edit().putInt("session_h", v).apply()
 
     var password: String
         get() = sp.getString("password", "") ?: ""

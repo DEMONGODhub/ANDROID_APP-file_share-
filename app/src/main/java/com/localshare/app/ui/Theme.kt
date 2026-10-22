@@ -10,22 +10,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-// Same palette as assets/web/index.html — change both together to re-skin the whole product.
+// Same amber palette as assets/web/index.html — change both together to re-skin the whole product.
 private val Dark = darkColorScheme(
-    primary = Color(0xFF7C9CFF), onPrimary = Color(0xFF0B1230),
-    secondary = Color(0xFF46E0B8), onSecondary = Color(0xFF00201A),
-    background = Color(0xFF0B0F14), onBackground = Color(0xFFE6EDF3),
-    surface = Color(0xFF131A22), onSurface = Color(0xFFE6EDF3),
-    surfaceVariant = Color(0xFF1B2430), onSurfaceVariant = Color(0xFF8B98A9),
-    outline = Color(0xFF263241), error = Color(0xFFFF6B7A), onError = Color(0xFF2A0006),
+    primary = Color(0xFFF7A600), onPrimary = Color(0xFF2A1C00),
+    primaryContainer = Color(0xFF4A3300), onPrimaryContainer = Color(0xFFFFDDA0),
+    secondary = Color(0xFFFF7A45), onSecondary = Color(0xFF2A0E00),
+    background = Color(0xFF17140F), onBackground = Color(0xFFF6EFE2),
+    surface = Color(0xFF211C14), onSurface = Color(0xFFF6EFE2),
+    surfaceVariant = Color(0xFF2B2419), onSurfaceVariant = Color(0xFFA39982),
+    outline = Color(0xFF3A3122), error = Color(0xFFF0745F), onError = Color(0xFF2A0A05),
 )
 private val Light = lightColorScheme(
-    primary = Color(0xFF4A6CF7), onPrimary = Color.White,
-    secondary = Color(0xFF12A98A), onSecondary = Color.White,
-    background = Color(0xFFF6F8FB), onBackground = Color(0xFF101820),
-    surface = Color.White, onSurface = Color(0xFF101820),
-    surfaceVariant = Color(0xFFEEF2F7), onSurfaceVariant = Color(0xFF5B6B7E),
-    outline = Color(0xFFD8E0EA), error = Color(0xFFD93A4B), onError = Color.White,
+    primary = Color(0xFF9C5F00), onPrimary = Color.White,
+    primaryContainer = Color(0xFFF7A600), onPrimaryContainer = Color(0xFF2A1C00),
+    secondary = Color(0xFFD9541F), onSecondary = Color.White,
+    background = Color(0xFFFBF6EA), onBackground = Color(0xFF231C0F),
+    surface = Color.White, onSurface = Color(0xFF231C0F),
+    surfaceVariant = Color(0xFFF4ECD9), onSurfaceVariant = Color(0xFF7D705A),
+    outline = Color(0xFFE6DAC0), error = Color(0xFFC8402F), onError = Color.White,
 )
 
 @Composable

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17140F">
+<title>PDF</title>
+<style>
+:root{--bg:#17140F;--surface:#211C14;--surface2:#2B2419;--outline:#3A3122;--text:#F6EFE2;--muted:#A39982;--primary:#F7A600;--onprimary:#2A1C00}
+@media (prefers-color-scheme:light){:root{--bg:#EFE7D6;--surface:#FFFFFF;--surface2:#F4ECD9;--outline:#E0D3B6;--text:#231C0F;--muted:#7D705A}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:6px;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:5}
+header button,header a{min-width:44px;height:44px;border-radius:22px;display:inline-grid;place-items:center;color:var(--text);background:none;border:0;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;padding:0 12px}
+header button:hover,header a:hover{background:var(--surface2)}
+header button:focus-visible,header a:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+#title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+#zv{min-width:48px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
+#count{color:var(--muted);font-size:13px;white-space:nowrap}
+#dl{background:var(--primary);color:var(--onprimary);font-size:14px}
+#dl:hover{background:var(--primary);filter:brightness(1.08)}
+main{flex:1;overflow:auto;padding:12px 0 40px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-overflow-scrolling:touch}
+canvas{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.4);flex:none}
+#msg{margin:auto;text-align:center;color:var(--muted);padding:24px;max-width:420px}
+#msg a{color:var(--primary);font-weight:600}
+@media (max-width:560px){#zo,#zi,#zv{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <button id="close" title="Close" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  <div id="title">PDF</div>
+  <span id="count"></span>
+  <button id="zo" title="Zoom out (-)" aria-label="Zoom out">−</button>
+  <span id="zv">100%</span>
+  <button id="zi" title="Zoom in (+)" aria-label="Zoom in">+</button>
+  <a id="dl" download>Download</a>
+</header>
+<main id="pages"><div id="msg">Loading…</div></main>
+<script src="/static/pdf.min.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const path=new URLSearchParams(location.search).get("path")||"";
+const name=path.split("/").pop()||"PDF";
+const fileUrl="/api/file?path="+encodeURIComponent(path);
+document.title=name;$("#title").textContent=name;$("#dl").href=fileUrl+"&dl=1";$("#dl").setAttribute("download",name);
+$("#close").onclick=()=>{window.close();setTimeout(()=>{if(history.length>1)history.back();else location.href="/"},150)};
+const box=$("#pages");let zoom=1,pages=[],doc=null,raf=0;
+function fail(html){box.innerHTML='<div id="msg">'+html+'</div>'}
+function fitWidth(){return Math.max(200,Math.min(box.clientWidth-16,1000))}
+function layout(){
+  const w=fitWidth()*zoom;
+  pages.forEach(p=>{p.c.style.width=w+"px";p.c.style.height=(w*p.h/p.w)+"px";p.scale=0});
+  $("#zv").textContent=Math.round(zoom*100)+"%";schedule();
+}
+function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;renderVisible()})}
+async function draw(p){
+  if(p.busy)return;p.busy=true;
+  try{
+    const dpr=Math.min(window.devicePixelRatio||1,2.5),w=fitWidth()*zoom,s=w/p.w*dpr;
+    const pg=await doc.getPage(p.n),vp=pg.getViewport({scale:s});
+    const tmp=document.createElement("canvas");tmp.width=Math.floor(vp.width);tmp.height=Math.floor(vp.height);
+    await pg.render({canvasContext:tmp.getContext("2d"),viewport:vp}).promise;
+    p.c.width=tmp.width;p.c.height=tmp.height;p.c.getContext("2d").drawImage(tmp,0,0);p.scale=s;
+  }catch(e){}
+  p.busy=false;
+}
+function renderVisible(){
+  const r=box.getBoundingClientRect(),top=r.top-900,bot=r.bottom+900;
+  pages.forEach(p=>{const b=p.c.getBoundingClientRect();if(b.bottom>top&&b.top<bot&&!p.scale)draw(p)});
+}
+function setZoom(z){const keep=box.scrollTop/Math.max(1,box.scrollHeight);zoom=Math.max(.5,Math.min(3,z));layout();box.scrollTop=keep*box.scrollHeight}
+$("#zi").onclick=()=>setZoom(zoom+.25);$("#zo").onclick=()=>setZoom(zoom-.25);
+addEventListener("keydown",e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==="+"||e.key==="=")setZoom(zoom+.25);else if(e.key==="-")setZoom(zoom-.25);else if(e.key==="0")setZoom(1);else if(e.key==="Escape")$("#close").click();
+});
+box.addEventListener("scroll",schedule,{passive:true});
+let rw=0;addEventListener("resize",()=>{clearTimeout(rw);rw=setTimeout(layout,150)});
+(async()=>{
+  if(!path){fail("No file was chosen. <a href=\"/\">Go to LocalShare</a>");return}
+  try{
+    const probe=await fetch(fileUrl,{method:"HEAD"});
+    if(probe.status===401){fail("Please sign in first. <a href=\"/\">Open LocalShare</a>");return}
+    if(probe.status===403){fail("The host has blocked this device.");return}
+    if(!probe.ok){fail("This file is no longer available. <a href=\"/\">Back to LocalShare</a>");return}
+    pdfjsLib.GlobalWorkerOptions.workerSrc="/static/pdf.worker.min.js";
+    doc=await pdfjsLib.getDocument({url:fileUrl}).promise;
+    const first=await doc.getPage(1),v=first.getViewport({scale:1});
+    box.innerHTML="";$("#count").textContent=doc.numPages+(doc.numPages===1?" page":" pages");
+    for(let i=1;i<=doc.numPages;i++){const c=document.createElement("canvas");c.setAttribute("role","img");c.setAttribute("aria-label","Page "+i);box.appendChild(c);pages.push({n:i,c,w:v.width,h:v.height,scale:0,busy:false})}
+    layout();
+  }catch(e){fail("This PDF could not be shown here. <a href=\""+fileUrl+"&dl=1\">Download it</a> instead.")}
+})();
+</script>
+</body>
+</html>
