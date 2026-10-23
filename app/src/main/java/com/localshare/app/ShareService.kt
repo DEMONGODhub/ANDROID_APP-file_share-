@@ -19,12 +19,14 @@ import androidx.core.app.ServiceCompat
 class ShareService : Service() {
     private var wake: PowerManager.WakeLock? = null
     private var wifi: WifiManager.WifiLock? = null
+    private val advertiser by lazy { Advertiser(this) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ShareController.init(this)
         if (intent?.action == ACTION_STOP) {
+            advertiser.unregister()
             ShareController.stop()
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -43,6 +45,7 @@ class ShareService : Service() {
             return START_NOT_STICKY
         }
         acquireLocks()
+        advertiser.register(ShareController.state.value.port)
         val url = ShareController.state.value.urls.firstOrNull()
         notify(if (url != null) "Sharing at $url" else "Sharing is on — connect to Wi-Fi or turn on hotspot")
         return START_STICKY
@@ -89,6 +92,7 @@ class ShareService : Service() {
     }
 
     override fun onDestroy() {
+        advertiser.unregister()
         ShareController.stop()
         wake?.takeIf { it.isHeld }?.release()
         wifi?.takeIf { it.isHeld }?.release()

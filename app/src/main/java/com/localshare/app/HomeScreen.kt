@@ -67,6 +67,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { perms = readPerms(ctx) }
     var showDonate by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
+    var tvNote by remember { mutableStateOf<String?>(null) }
     if (showDonate) DonateDialog { showDonate = false }
 
     fun start() {
@@ -94,6 +95,10 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
                     Spacer(Modifier.width(8.dp))
                     Text("Open the page here (files and game)")
                 }
+                OutlinedButton({ SendToTv.scan(ctx, st) { tvNote = it } }, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Text("Send to TV (scan the code on your TV)")
+                }
+                tvNote?.let { Text(it, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodySmall) }
             }
         }
         item {

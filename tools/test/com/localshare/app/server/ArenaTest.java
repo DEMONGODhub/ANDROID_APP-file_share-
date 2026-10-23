@@ -56,17 +56,17 @@ public class ArenaTest {
         ServerConfig cfg = new ServerConfig();
 
         System.out.println("== arena: bots");
-        GameHub h = hub(cfg, 5);
+        GameHub h = hub(cfg, 1);
         Rec ra = new Rec(), rb = new Rec();
         GameHub.Player a = h.join("ta", "aaaa", "Alice", ra);
         h.tick();
-        check("a lone player gets 4 bots", h.botCount() == 4 && ra.snap().contains("\"n\":5"));
+        check("a lone player gets exactly 1 bot", h.botCount() == 1 && ra.snap().contains("\"n\":2"));
         h.join("tb", "bbbb", "Bob", rb);
         h.tick();
-        check("second human replaces one bot", h.botCount() == 3 && ra.snap().contains("\"n\":5"));
+        check("second device joins; still only 1 bot", h.botCount() == 1 && ra.snap().contains("\"n\":3"));
         ticks(h, 400);
         check("bots eat orbs and grow over 20 s", h.maxBotRadius() > 19);
-        check("bot count stable", h.botCount() == 3);
+        check("bot count stable", h.botCount() == 1);
         h.leave(a);
         h.drop("tb");
         h.tick();

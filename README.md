@@ -11,6 +11,7 @@ Kotlin + Jetpack Compose (Material 3). The server is pure Java with no third-par
 - Keeps sharing while the phone is locked (foreground service, wake and Wi-Fi locks) with plain-language permission help.
 - **Full-screen** Orb Arena game: server-authoritative, minimap, leaderboard, touch joystick and boost.
 - Per-device help (?) and **PC keyboard shortcuts** (press `?` on a computer).
+- **Send to TV**: scan the code shown by [LocalShare TV](../LocalShareTV); the phone also announces itself so the TV lists it.
 - Donate dialog with ₹1–₹10 quick amounts (UPI QR).
 
 ## Build

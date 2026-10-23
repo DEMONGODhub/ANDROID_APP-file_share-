@@ -23,12 +23,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Orb Arena: a server-authoritative multiplayer game at 20 ticks per second. Everyone steers a blob,
- * eats orbs to grow, boosts at the cost of size, and eats smaller blobs. Bots fill the arena so a
+ * eats orbs to grow, boosts at the cost of size, and eats smaller blobs. One bot keeps the arena alive so a
  * single player is never alone.
  */
 final class GameHub {
     static final double W = 3000, H = 3000, START_R = 18, MIN_BOOST_R = 22;
-    static final int ORBS = 220, BOT_FILL = 5;
+    static final int ORBS = 220, BOT_FILL = 1;
     private static final double DT = 0.05;
     private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final String[] BOT_NAMES = {"Imp", "Wraith", "Ember", "Gloom", "Specter", "Ash", "Fiend", "Hex", "Cinder", "Shade"};
@@ -206,7 +206,7 @@ final class GameHub {
     }
 
     private void fillBots(int humans) {
-        int want = Math.max(0, botFill - humans), have = 0;
+        int want = humans > 0 ? botFill : 0, have = 0; // one sparring bot; everyone else is a connected device
         for (Player p : players.values()) if (p.out == null) have++;
         while (have < want) {
             String id = "b" + (++botSeq);
