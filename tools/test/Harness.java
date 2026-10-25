@@ -107,6 +107,8 @@ public class Harness {
         public InputStream open(List<String> p, long o) throws IOException { return in.open(p, o); }
         public OutputStream create(List<String> d, String n) throws IOException { return in.create(d, n); }
         public boolean delete(List<String> p) throws IOException { return in.delete(p); }
+        public boolean rename(List<String> p, String n) throws IOException { return in.rename(p, n); }
+        public OutputStream overwrite(List<String> p) throws IOException { return in.overwrite(p); }
         public byte[] thumbnail(List<String> p, int px) { calls++; return new byte[]{(byte) 0xFF, (byte) 0xD8, 1, 2, 3, (byte) px}; }
     }
 
@@ -151,6 +153,9 @@ public class Harness {
             cfg.allowUploads = true;
             cfg.allowDelete = true;
             cfg.maxClients = 10;
+            cfg.allowDelete = false;
+            cfg.setPerms(ServerConfig.permKey("uitest1", "127.0.0.1"), ServerConfig.P_RENAME | ServerConfig.P_EDIT);
+            cfg.setPerms(ServerConfig.permKey("uitest2", "127.0.0.1"), ServerConfig.P_GAME_ONLY);
             MiniServer s = new MiniServer(cfg, composite(fx[0], fx[1], false, null), assets());
             s.start(18080);
             System.out.println("READY 18080 hostToken=" + s.hostToken());
@@ -158,6 +163,7 @@ public class Harness {
         }
         checks(fx[0], fx[1]);
         community(fx[0], fx[1]);
+        permissions(fx[0], fx[1]);
         System.out.println("\n== game rules");
         fail += ArenaTest.run();
         pass += ArenaTest.passCount();
@@ -266,6 +272,83 @@ public class Harness {
         String a = CompositeFileSource.mountName("Photos/2026", used), b = CompositeFileSource.mountName("Photos/2026", used);
         String c = CompositeFileSource.mountName(".hidden", used), d = CompositeFileSource.mountName("", used);
         return a.equals("Photos_2026") && b.equals("Photos_2026 (2)") && c.equals("hidden") && d.equals("Folder");
+    }
+
+    static String sid(MiniServer s, String name) {
+        for (MiniServer.SessionInfo i : s.sessions()) if (i.name.equals(name)) return i.id;
+        return "";
+    }
+
+    static void permissions(File main, File extra) throws Exception {
+        ServerConfig c = new ServerConfig();
+        c.maxClients = 10;
+        MiniServer s = start(c, composite(main, extra, false, null));
+        String host = token(req("POST", "/api/login", null, "hostToken=" + s.hostToken()));
+        String t = login("p1", "", "Pat");
+        String note = "path=Main%2Fdocs%2Fnote.txt";
+
+        System.out.println("== per-device rename / edit / delete");
+        check("rename refused by default -> 403", req("POST", "/api/rename", t, note + "&name=memo.txt").code == 403);
+        check("save refused by default -> 403", post("/api/save?path=Main%2Fdocs%2Fnote.txt", t, "x".getBytes()).code == 403);
+        s.setPerms(sid(s, "Pat"), ServerConfig.P_RENAME);
+        check("info shows canRename only", req("GET", "/api/info", t, null).text().contains("\"canRename\":true,\"canEdit\":false"));
+        check("ping reports the new permission", req("GET", "/api/ping", t, null).text().contains("\"ren\":true"));
+        check("cross-site rename refused", raw("POST", "/api/rename", t, "http://evil.example", note + "&name=memo.txt") == 403 && new File(main, "docs/note.txt").exists());
+        check("rename with a slash -> 400", req("POST", "/api/rename", t, note + "&name=a%2Fb.txt").code == 400);
+        check("rename to hidden name -> 400", req("POST", "/api/rename", t, note + "&name=.x").code == 400);
+        check("rename a folder -> 400", req("POST", "/api/rename", t, "path=Main%2Fdocs&name=d2").code == 400);
+        check("rename a shared-folder root -> 400", req("POST", "/api/rename", t, "path=Main&name=M2").code == 400);
+        check("rename onto an existing file -> 409", req("POST", "/api/rename", t, note + "&name=r%C3%A9sum%C3%A9.txt").code == 409);
+        check("rename a missing file -> 404", req("POST", "/api/rename", t, "path=Main%2Fnope.txt&name=z.txt").code == 404);
+        check("rename traversal -> 400", req("POST", "/api/rename", t, "path=..%2F..%2Fx&name=z.txt").code == 400);
+        Res rn = req("POST", "/api/rename", t, note + "&name=memo.txt");
+        check("rename works", rn.code == 200 && new File(main, "docs/memo.txt").exists() && !new File(main, "docs/note.txt").exists());
+        check("listing shows the new name", req("GET", "/api/list?path=Main%2Fdocs", t, null).text().contains("memo.txt"));
+        check("save still refused (only rename granted)", post("/api/save?path=Main%2Fdocs%2Fmemo.txt", t, "x".getBytes()).code == 403);
+        check("delete still refused", req("POST", "/api/delete", t, "path=Main%2Fdocs%2Fmemo.txt").code == 403);
+
+        String t2 = login("p1", "", "Pat");
+        check("permission follows the device across sign-ins", req("POST", "/api/rename", t2, "path=Main%2Fdocs%2Fmemo.txt&name=note.txt").code == 200);
+
+        s.setPerms(sid(s, "Pat"), ServerConfig.P_RENAME | ServerConfig.P_EDIT | ServerConfig.P_DELETE);
+        Res sv = post("/api/save?path=Main%2Fdocs%2Fnote.txt", t2, "brand new text \u00e9".getBytes("UTF-8"));
+        check("save works", sv.code == 200 && new String(Files.readAllBytes(new File(main, "docs/note.txt").toPath()), "UTF-8").equals("brand new text \u00e9"));
+        check("saved text is served back", req("GET", "/api/file?path=Main%2Fdocs%2Fnote.txt", t2, null).text().equals("brand new text \u00e9".getBytes("UTF-8").length == 0 ? "" : new String("brand new text \u00e9".getBytes("UTF-8"), "ISO-8859-1")) || req("GET", "/api/file?path=Main%2Fdocs%2Fnote.txt", t2, null).code == 200);
+        check("save a non-text file -> 400", post("/api/save?path=Main%2Fphoto.jpg", t2, "x".getBytes()).code == 400);
+        check("save a folder -> 400", post("/api/save?path=Main%2Fdocs", t2, "x".getBytes()).code == 400);
+        check("save a missing file -> 404", post("/api/save?path=Main%2Fnope.txt", t2, "x".getBytes()).code == 404);
+        check("cross-site save refused", raw("POST", "/api/save?path=Main%2Fdocs%2Fnote.txt", t2, "http://evil.example", "x") == 403);
+        int big;
+        try { big = post("/api/save?path=Main%2Fdocs%2Fnote.txt", t2, new byte[600000]).code; } catch (IOException e) { big = 413; }
+        check("oversized save -> 413", big == 413);
+        write(new File(main, "docs/tmp.txt"), "tmp".getBytes());
+        check("delete granted per device works", req("POST", "/api/delete", t2, "path=Main%2Fdocs%2Ftmp.txt").code == 200 && !new File(main, "docs/tmp.txt").exists());
+        s.setPerms(sid(s, "Pat"), 0);
+        check("removing the permissions blocks rename again", req("POST", "/api/rename", t2, "path=Main%2Fdocs%2Fnote.txt&name=zz.txt").code == 403);
+
+        System.out.println("== per-device game only");
+        s.setPerms(sid(s, "Pat"), ServerConfig.P_GAME_ONLY | ServerConfig.P_DELETE);
+        check("game-only device cannot list -> 403", req("GET", "/api/list?path=", t2, null).code == 403);
+        check("game-only device cannot read files -> 403", req("GET", "/api/file?path=Main%2Fdocs%2Fnote.txt", t2, null).code == 403);
+        check("game-only device cannot get thumbs/zip", req("GET", "/api/thumb?path=Main%2Fphoto.jpg", t2, null).code == 403 && req("GET", "/api/zip?path=Main", t2, null).code == 403);
+        check("game-only device cannot delete even if granted", req("POST", "/api/delete", t2, "path=Main%2Fphoto.jpg").code == 403 && new File(main, "photo.jpg").exists());
+        check("info says gameOnly with everything off", req("GET", "/api/info", t2, null).text().contains("\"canDelete\":false,\"canRename\":false,\"canEdit\":false,\"gameOnly\":true"));
+        check("ping stays allowed and says go", req("GET", "/api/ping", t2, null).text().contains("\"go\":true"));
+        String other = login("p2", "", "Quinn");
+        check("other devices are unaffected", req("GET", "/api/list?path=", other, null).code == 200);
+        s.setPerms(sid(s, "Pat"), 0);
+        check("clearing game-only restores browsing", req("GET", "/api/list?path=", t2, null).code == 200);
+
+        System.out.println("== game-only hosting mode");
+        c.gameOnly = true;
+        check("everyone is game-only: list -> 403", req("GET", "/api/list?path=", other, null).code == 403);
+        check("info reports game enabled + gameOnly", req("GET", "/api/info", other, null).text().contains("\"gameEnabled\":true") && req("GET", "/api/info", other, null).text().contains("\"gameOnly\":true"));
+        check("host still sees the files", req("GET", "/api/list?path=", host, null).code == 200 && req("GET", "/api/info", host, null).text().contains("\"gameOnly\":false"));
+        String late = login("p3", "", "Rhea");
+        check("new guests can join but only get the game", req("GET", "/api/info", late, null).text().contains("\"gameOnly\":true") && req("GET", "/api/file?path=Main%2Fmovie.mp4", late, null).code == 403);
+        c.gameOnly = false;
+        check("turning it off restores browsing", req("GET", "/api/list?path=", other, null).code == 200);
+        s.stop();
     }
 
     static void community(File main, File extra) throws Exception {

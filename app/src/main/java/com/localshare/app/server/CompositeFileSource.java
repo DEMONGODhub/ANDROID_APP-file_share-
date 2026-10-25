@@ -73,6 +73,17 @@ public final class CompositeFileSource implements FileSource {
         return m != null && path.size() > 1 && m.delete(rest(path));
     }
 
+    @Override public boolean rename(List<String> path, String newName) throws IOException {
+        FileSource m = mount(path);
+        return m != null && path.size() > 1 && m.rename(rest(path), newName);
+    }
+
+    @Override public OutputStream overwrite(List<String> path) throws IOException {
+        FileSource m = mount(path);
+        if (m == null || path.size() < 2) throw new IOException("not a file");
+        return m.overwrite(rest(path));
+    }
+
     @Override public byte[] thumbnail(List<String> path, int maxPx) throws IOException {
         FileSource m = mount(path);
         return m == null || path.size() < 2 ? null : m.thumbnail(rest(path), maxPx);

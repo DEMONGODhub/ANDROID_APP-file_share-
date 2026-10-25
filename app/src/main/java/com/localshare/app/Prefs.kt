@@ -40,6 +40,22 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("port", 8080)
         set(v) = sp.edit().putInt("port", v).apply()
 
+    /** Game-only hosting: nobody but the host can see any file. */
+    var gameOnly: Boolean
+        get() = sp.getBoolean("game_only", false)
+        set(v) = sp.edit().putBoolean("game_only", v).apply()
+
+    fun loadPerms(): Map<String, Int> =
+        (sp.getString("perms", "") ?: "").lines().mapNotNull {
+            val p = it.split('\t')
+            val v = p.getOrNull(1)?.toIntOrNull()
+            if (p.size == 2 && v != null) p[0] to v else null
+        }.toMap()
+
+    fun savePerms(m: Map<String, Int>) {
+        sp.edit().putString("perms", m.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
+    }
+
     var gameEnabled: Boolean
         get() = sp.getBoolean("game", true)
         set(v) = sp.edit().putBoolean("game", v).apply()

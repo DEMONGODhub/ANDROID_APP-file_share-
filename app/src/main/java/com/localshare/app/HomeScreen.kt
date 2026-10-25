@@ -20,7 +20,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,14 +154,25 @@ private fun StatusCard(
                 Text("Open this address in a browser on any device on the same network.", color = fg.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
             } else {
                 Text(
-                    if (st.folders.isEmpty()) "Add a folder below to get started." else "Ready to share ${st.folders.size} ${if (st.folders.size == 1) "folder" else "folders"}.",
+                    if (st.gameOnly) "Game-only mode: guests can play but never see your files."
+                    else if (st.folders.isEmpty()) "Add a folder below to get started." else "Ready to share ${st.folders.size} ${if (st.folders.size == 1) "folder" else "folders"}.",
                     color = c.onSurfaceVariant,
                 )
             }
             st.error?.let { Text(it, color = c.error) }
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(st.gameOnly, role = Role.Switch) { ShareController.setGameOnly(it) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Game-only mode", color = fg, fontWeight = FontWeight.SemiBold)
+                    Text("Host just the game. No folders needed, no files visible.", color = fg.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(st.gameOnly, null)
+            }
             Button(
                 onClick = { if (st.running) onStop() else onStart() },
-                enabled = st.running || st.folders.isNotEmpty(),
+                enabled = st.running || st.folders.isNotEmpty() || st.gameOnly,
                 colors = if (st.running) ButtonDefaults.buttonColors(containerColor = c.background, contentColor = c.onBackground) else ButtonDefaults.buttonColors(),
                 modifier = Modifier.fillMaxWidth().height(52.dp),
             ) { Text(if (st.running) "Stop sharing" else "Start sharing", fontWeight = FontWeight.Bold) }

@@ -115,7 +115,8 @@ fun SettingsScreen(st: UiState) {
         }
         item {
             SectionCard {
-                SwitchRow("Orb Arena game", "Full-screen multiplayer game for guests", st.gameEnabled) { ShareController.setGame(it) }
+                SwitchRow("Orb Arena game", if (st.gameOnly) "Always on in game-only mode" else "Full-screen multiplayer game for guests", st.gameEnabled) { if (!st.gameOnly) ShareController.setGame(it) }
+                SwitchRow("Game-only mode", "Guests only see the game, never your files", st.gameOnly) { ShareController.setGameOnly(it) }
             }
         }
         item {

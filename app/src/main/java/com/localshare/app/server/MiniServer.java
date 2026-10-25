@@ -39,8 +39,10 @@ public final class MiniServer {
     public static final class SessionInfo {
         public final String id, name, ip;
         public final long since, lastSeen;
+        public final int perms;
 
-        SessionInfo(Session s) {
+        SessionInfo(Session s, int perms) {
+            this.perms = perms;
             id = s.id;
             name = s.name;
             ip = s.ip;
@@ -173,7 +175,7 @@ public final class MiniServer {
     public List<SessionInfo> sessions() {
         long now = System.currentTimeMillis();
         List<SessionInfo> out = new ArrayList<SessionInfo>();
-        for (Session s : sessions.values()) if (!s.host && now - s.lastSeen < ACTIVE_MS) out.add(new SessionInfo(s));
+        for (Session s : sessions.values()) if (!s.host && now - s.lastSeen < ACTIVE_MS) out.add(new SessionInfo(s, cfg.perms(ServerConfig.permKey(s.device, s.ip))));
         Collections.sort(out, new Comparator<SessionInfo>() {
             @Override public int compare(SessionInfo a, SessionInfo b) {
                 return a.since < b.since ? -1 : (a.since == b.since ? 0 : 1);
@@ -320,7 +322,7 @@ public final class MiniServer {
             } catch (NumberFormatException e) {
                 return null;
             }
-            if (len >= 0 && r.method.equals("POST") && r.path.equals("/api/upload")) {
+            if (len >= 0 && r.method.equals("POST") && (r.path.equals("/api/upload") || r.path.equals("/api/save"))) {
                 r.bodyLen = len;
                 return r;
             }
@@ -411,12 +413,49 @@ public final class MiniServer {
         return n;
     }
 
+    private int permsOf(Session s) {
+        return s == null || s.host ? 0 : cfg.perms(ServerConfig.permKey(s.device, s.ip));
+    }
+
+    /** True when this guest may only play the game: the whole phone is in game-only mode, or this device was set to it. */
+    private boolean gameOnly(Session s) {
+        return s != null && !s.host && (cfg.gameOnly || (permsOf(s) & ServerConfig.P_GAME_ONLY) != 0);
+    }
+
     private boolean canUpload(Session s) {
-        return s != null && (s.host || cfg.allowUploads);
+        return s != null && (s.host || (cfg.allowUploads && !gameOnly(s)));
     }
 
     private boolean canDelete(Session s) {
-        return s != null && (s.host || cfg.allowDelete);
+        return s != null && (s.host || (!gameOnly(s) && (cfg.allowDelete || (permsOf(s) & ServerConfig.P_DELETE) != 0)));
+    }
+
+    private boolean canRename(Session s) {
+        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_RENAME) != 0));
+    }
+
+    private boolean canEdit(Session s) {
+        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_EDIT) != 0));
+    }
+
+    /** Like auth, but also refuses guests who may only play the game. */
+    private Session authFiles(Req r, OutputStream out, boolean isHead) throws IOException {
+        Session s = auth(r, out, isHead);
+        if (s != null && gameOnly(s)) {
+            json(out, isHead, 403, err("This device can only play the game"));
+            return null;
+        }
+        return s;
+    }
+
+    /** Host-side: change what one connected device may do. */
+    public void setPerms(String id, int perms) {
+        for (Session s : sessions.values()) {
+            if (s.id.equals(id) && !s.host) {
+                cfg.setPerms(ServerConfig.permKey(s.device, s.ip), perms);
+                cfg.log.add("perms", s.name, s.ip, "");
+            }
+        }
     }
 
     /** Returns the session, or writes an error response and returns null. */
@@ -545,10 +584,11 @@ public final class MiniServer {
         }
         if (get && path.equals("/api/info")) {
             Session s = sessionOf(r);
-            json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameEnabled\":" + cfg.gameEnabled
+            json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameEnabled\":" + (cfg.gameEnabled || gameOnly(s))
                     + ",\"max\":" + cfg.maxClients + ",\"active\":" + activeCount(null) + ",\"authed\":" + (s != null)
                     + ",\"name\":" + Util.q(s == null ? "" : s.name) + ",\"host\":" + (s != null && s.host)
-                    + ",\"canUpload\":" + canUpload(s) + ",\"canDelete\":" + canDelete(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
+                    + ",\"canUpload\":" + canUpload(s) + ",\"canDelete\":" + canDelete(s) + ",\"canRename\":" + canRename(s)
+                    + ",\"canEdit\":" + canEdit(s) + ",\"gameOnly\":" + gameOnly(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
             return true;
         }
         if (post && path.equals("/api/login")) {
@@ -564,36 +604,47 @@ public final class MiniServer {
         if (get && path.equals("/api/ping")) {
             Session s = auth(r, out, isHead);
             if (s == null) return true;
-            json(out, isHead, 200, "{\"ok\":true,\"up\":" + canUpload(s) + ",\"del\":" + canDelete(s) + "}");
+            json(out, isHead, 200, "{\"ok\":true,\"up\":" + canUpload(s) + ",\"del\":" + canDelete(s) + ",\"ren\":" + canRename(s)
+                    + ",\"edt\":" + canEdit(s) + ",\"go\":" + gameOnly(s) + "}");
             return true;
         }
         if (get && path.equals("/api/list")) {
-            if (auth(r, out, isHead) == null) return true;
+            if (authFiles(r, out, isHead) == null) return true;
             return list(r, out, isHead);
         }
         if (get && path.equals("/api/file")) {
-            Session s = auth(r, out, isHead);
+            Session s = authFiles(r, out, isHead);
             if (s == null) return true;
             return file(r, s, out, isHead);
         }
         if (get && path.equals("/api/thumb")) {
-            if (auth(r, out, isHead) == null) return true;
+            if (authFiles(r, out, isHead) == null) return true;
             return thumb(r, out, isHead);
         }
         if (get && path.equals("/api/zip")) {
-            Session s = auth(r, out, isHead);
+            Session s = authFiles(r, out, isHead);
             if (s == null) return true;
             return zip(r, s, out);
         }
         if (post && path.equals("/api/upload")) {
-            Session s = auth(r, out, false);
+            Session s = authFiles(r, out, false);
             if (s == null) return false;
             return upload(r, s, in, out);
         }
         if (post && path.equals("/api/delete")) {
-            Session s = auth(r, out, false);
+            Session s = authFiles(r, out, false);
             if (s == null) return true;
             return delete(r, s, out);
+        }
+        if (post && path.equals("/api/rename")) {
+            Session s = authFiles(r, out, false);
+            if (s == null) return true;
+            return rename(r, s, out);
+        }
+        if (post && path.equals("/api/save")) {
+            Session s = authFiles(r, out, false);
+            if (s == null) return false;
+            return save(r, s, in, out);
         }
         if (get && path.equals("/ws")) return websocket(r, sock, in, out);
         json(out, isHead, 404, err("not found"));
@@ -989,6 +1040,113 @@ public final class MiniServer {
         if (!complete) return false;
         if (!s.host) cfg.log.add("upload", s.name, s.ip, pathStr(child(dir, stored)));
         json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(stored) + ",\"size\":" + len + "}");
+        return true;
+    }
+
+    private boolean rename(Req r, Session s, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return true;
+        }
+        if (!canRename(s)) {
+            json(out, false, 403, err("Renaming is not allowed for this device"));
+            return true;
+        }
+        List<String> sg = segs(r.form.get("path"));
+        String name = cleanFileName(r.form.get("name"));
+        if (sg == null || sg.size() < 2 || name == null) {
+            json(out, false, 400, err("Bad file name"));
+            return true;
+        }
+        FileSource.Entry e;
+        try {
+            e = fs.stat(sg);
+        } catch (IOException ex) {
+            e = null;
+        }
+        if (e == null || e.dir) {
+            json(out, false, e == null ? 404 : 400, err(e == null ? "not found" : "Only files can be renamed"));
+            return true;
+        }
+        List<String> to = new ArrayList<String>(sg.subList(0, sg.size() - 1));
+        to.add(name);
+        boolean ok;
+        try {
+            if (name.equals(e.name)) {
+                json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + "}");
+                return true;
+            }
+            if (fs.stat(to) != null) {
+                json(out, false, 409, err("A file with that name already exists"));
+                return true;
+            }
+            ok = fs.rename(sg, name);
+        } catch (IOException ex) {
+            ok = false;
+        }
+        if (!ok) {
+            json(out, false, 500, err("Could not rename this file"));
+            return true;
+        }
+        if (!s.host) cfg.log.add("rename", s.name, s.ip, pathStr(sg) + " -> " + name);
+        json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + "}");
+        return true;
+    }
+
+    private static final int MAX_EDIT_BYTES = 512 * 1024;
+
+    /** Replaces the content of a small text file with the request body. */
+    private boolean save(Req r, Session s, InputStream in, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return false;
+        }
+        if (!canEdit(s)) {
+            json(out, false, 403, err("Editing is not allowed for this device"));
+            return false;
+        }
+        List<String> sg = segs(r.q.get("path"));
+        if (sg == null || sg.size() < 2 || r.bodyLen < 0) {
+            json(out, false, 400, err("bad request"));
+            return false;
+        }
+        if (r.bodyLen > MAX_EDIT_BYTES) {
+            json(out, false, 413, err("Text files up to 512 KB can be edited"));
+            return false;
+        }
+        FileSource.Entry e;
+        try {
+            e = fs.stat(sg);
+        } catch (IOException ex) {
+            e = null;
+        }
+        if (e == null || e.dir || !"text".equals(Util.kind(e.name))) {
+            json(out, false, e == null ? 404 : 400, err(e == null ? "not found" : "Only text files can be edited"));
+            return false;
+        }
+        byte[] b = new byte[(int) r.bodyLen];
+        int o = 0;
+        while (o < b.length) {
+            int k = in.read(b, o, b.length - o);
+            if (k < 0) {
+                json(out, false, 400, err("incomplete"));
+                return false;
+            }
+            o += k;
+        }
+        try {
+            OutputStream os = fs.overwrite(sg);
+            try {
+                os.write(b);
+            } finally {
+                os.close();
+            }
+        } catch (IOException ex) {
+            json(out, false, 500, err("Could not save this file"));
+            return true;
+        }
+        if (!s.host) cfg.log.add("edit", s.name, s.ip, pathStr(sg));
+        json(out, false, 200, "{\"ok\":true,\"size\":" + b.length + "}");
         return true;
     }
 

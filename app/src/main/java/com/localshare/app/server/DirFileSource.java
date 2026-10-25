@@ -67,6 +67,19 @@ public final class DirFileSource implements FileSource {
         return f != null && f.isFile() && f.delete();
     }
 
+    @Override public boolean rename(List<String> path, String newName) throws IOException {
+        File f = resolve(path);
+        if (f == null || !f.isFile() || f.getParentFile() == null) return false;
+        File to = new File(f.getParentFile(), newName);
+        return !to.exists() && f.renameTo(to);
+    }
+
+    @Override public OutputStream overwrite(List<String> path) throws IOException {
+        File f = resolve(path);
+        if (f == null || !f.isFile()) throw new IOException("not a file");
+        return new FileOutputStream(f);
+    }
+
     @Override public byte[] thumbnail(List<String> path, int maxPx) {
         return null;
     }

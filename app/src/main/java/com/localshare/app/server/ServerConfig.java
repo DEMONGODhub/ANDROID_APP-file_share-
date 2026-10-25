@@ -32,6 +32,37 @@ public final class ServerConfig {
     public volatile boolean gameEnabled = true;
     public volatile boolean allowUploads = false;
     public volatile boolean allowDelete = false;
+    /** Game-only hosting: nobody but the host can see any file. */
+    public volatile boolean gameOnly = false;
+
+    /** Per-device extras the host can grant (or restrict) from the Devices tab. */
+    public static final int P_DELETE = 1, P_RENAME = 2, P_EDIT = 4, P_GAME_ONLY = 8, P_ALL = 15;
+    private final ConcurrentHashMap<String, Integer> perms = new ConcurrentHashMap<String, Integer>();
+
+    /** Key a device keeps across sign-ins: its browser id, or its IP address when it has none. */
+    public static String permKey(String device, String ip) {
+        return device != null && device.length() > 0 ? "d:" + device : "i:" + ip;
+    }
+
+    public int perms(String key) {
+        Integer v = perms.get(key);
+        return v == null ? 0 : v;
+    }
+
+    public void setPerms(String key, int v) {
+        v &= P_ALL;
+        if (v == 0) perms.remove(key); else perms.put(key, v);
+        changed();
+    }
+
+    public java.util.Map<String, Integer> permsSnapshot() {
+        return new java.util.HashMap<String, Integer>(perms);
+    }
+
+    public void loadPerms(java.util.Map<String, Integer> m) {
+        perms.clear();
+        for (java.util.Map.Entry<String, Integer> e : m.entrySet()) if ((e.getValue() & P_ALL) != 0) perms.put(e.getKey(), e.getValue() & P_ALL);
+    }
     /** Guests sign in again this long after joining; 0 means never. */
     public volatile long sessionMs = 6L * 3600000L;
     public volatile long maxUploadBytes = 2L * 1024 * 1024 * 1024;

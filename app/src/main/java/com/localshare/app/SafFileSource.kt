@@ -134,6 +134,20 @@ class SafFileSource(context: Context, private val tree: Uri) : FileSource {
         return ok
     }
 
+    override fun rename(path: List<String>, newName: String): Boolean {
+        val node = resolve(path) ?: return false
+        if (node.dir) return false
+        val made = try { DocumentsContract.renameDocument(cr, docUri(node), newName) } catch (e: Exception) { null }
+        cache.remove(path.joinToString("/"))
+        return made != null
+    }
+
+    override fun overwrite(path: List<String>): OutputStream {
+        val node = resolve(path)?.takeIf { !it.dir } ?: throw IOException("not a file")
+        cache.remove(path.joinToString("/"))
+        return cr.openOutputStream(docUri(node), "wt") ?: throw IOException("cannot write")
+    }
+
     override fun thumbnail(path: List<String>, maxPx: Int): ByteArray? {
         val node = resolve(path)?.takeIf { !it.dir } ?: return null
         val uri = docUri(node)

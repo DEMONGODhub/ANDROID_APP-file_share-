@@ -35,6 +35,12 @@ public interface FileSource {
     /** Deletes a file. Folders are never deleted. */
     boolean delete(List<String> path) throws IOException;
 
+    /** Renames a file inside its folder. Folders are never renamed. {@code newName} is a plain, already-validated name. */
+    boolean rename(List<String> path, String newName) throws IOException;
+
+    /** Opens an existing file for writing, replacing its content. */
+    OutputStream overwrite(List<String> path) throws IOException;
+
     /** Small JPEG preview of an image or video no larger than maxPx, or null when none can be made. */
     byte[] thumbnail(List<String> path, int maxPx) throws IOException;
 }

@@ -16,7 +16,7 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.Collections
 
-data class Device(val id: String, val name: String, val ip: String, val since: Long)
+data class Device(val id: String, val name: String, val ip: String, val since: Long, val perms: Int = 0)
 data class SharedFolder(val uri: String, val name: String)
 data class BlockedDevice(val id: String, val name: String, val ip: String)
 data class LogLine(val time: Long, val kind: String, val who: String, val detail: String)
@@ -35,6 +35,7 @@ data class UiState(
     val gameEnabled: Boolean = true,
     val allowUploads: Boolean = false,
     val allowDelete: Boolean = false,
+    val gameOnly: Boolean = false,
     val sessionHours: Int = 6,
     val error: String? = null,
 )
@@ -67,16 +68,22 @@ object ShareController {
         cfg.gameEnabled = prefs.gameEnabled
         cfg.allowUploads = prefs.allowUploads
         cfg.allowDelete = prefs.allowDelete
+        cfg.gameOnly = prefs.gameOnly
+        cfg.gameEnabled = prefs.gameEnabled || prefs.gameOnly
+        cfg.loadPerms(prefs.loadPerms())
         cfg.sessionMs = prefs.sessionHours * 3600000L
         cfg.setBlocks(prefs.loadBlocks())
-        cfg.onChange = Runnable { prefs.saveBlocks(cfg.blocks()); refresh() }
+        cfg.onChange = Runnable { prefs.saveBlocks(cfg.blocks()); prefs.savePerms(cfg.permsSnapshot()); refresh() }
         refresh()
     }
 
     // ---- settings (applied live to the running server) ----
     fun setPassword(v: String) { prefs.password = v; cfg.password = v; server?.kickAll(); refresh() }
     fun setMaxClients(v: Int) { prefs.maxClients = v; cfg.maxClients = v; refresh() }
-    fun setGame(v: Boolean) { prefs.gameEnabled = v; cfg.gameEnabled = v; refresh() }
+    fun setGame(v: Boolean) { prefs.gameEnabled = v; cfg.gameEnabled = v || prefs.gameOnly; refresh() }
+    /** Game-only hosting needs no folders: guests only ever see the game. */
+    fun setGameOnly(v: Boolean) { prefs.gameOnly = v; cfg.gameOnly = v; cfg.gameEnabled = prefs.gameEnabled || v; refresh() }
+    fun setDevicePerms(id: String, perms: Int) { server?.setPerms(id, perms); refresh() }
     fun setPort(v: Int) { prefs.port = v; refresh() }
     fun setUploads(v: Boolean) { prefs.allowUploads = v; cfg.allowUploads = v; refresh() }
     fun setDelete(v: Boolean) { prefs.allowDelete = v; cfg.allowDelete = v; refresh() }
@@ -116,6 +123,8 @@ object ShareController {
         return CompositeFileSource(mounts)
     }
 
+    fun deviceGameOk(): Boolean = prefs.gameEnabled || prefs.gameOnly
+
     fun kick(id: String) { server?.kick(id); refresh() }
     fun block(id: String) { server?.block(id); refresh() }
     fun unblock(id: String) { cfg.removeBlock(id); refresh() }
@@ -125,7 +134,7 @@ object ShareController {
     @Synchronized
     fun start(): String? {
         if (server != null) return null
-        if (prefs.folders.isEmpty()) return "Add a folder first"
+        if (prefs.folders.isEmpty() && !prefs.gameOnly) return "Add a folder first, or turn on game-only mode"
         return try {
             val s = MiniServer(cfg, buildSource(), AssetProvider { name ->
                 try { app.assets.open("web/$name").use { it.readBytes() } } catch (e: java.io.IOException) { null }
@@ -160,7 +169,7 @@ object ShareController {
             urls = ips.map { "http://$it:${s?.port()}" },
             hostToken = s?.hostToken() ?: "",
             folders = prefs.folders.map { SharedFolder(it, folderName(it)) },
-            devices = s?.sessions()?.map { Device(it.id, it.name, it.ip, it.since) } ?: emptyList(),
+            devices = s?.sessions()?.map { Device(it.id, it.name, it.ip, it.since, it.perms) } ?: emptyList(),
             blocks = cfg.blocks().map { BlockedDevice(it.id, it.name, it.ip) },
             log = if (s != null) cfg.log.recent().take(100).map { LogLine(it.time, it.kind, it.who, it.detail) } else emptyList(),
             password = cfg.password,
@@ -168,6 +177,7 @@ object ShareController {
             gameEnabled = cfg.gameEnabled,
             allowUploads = cfg.allowUploads,
             allowDelete = cfg.allowDelete,
+            gameOnly = cfg.gameOnly,
             sessionHours = prefs.sessionHours,
             error = _state.value.error.takeIf { s == null },
         )
