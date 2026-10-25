@@ -30,4 +30,16 @@ java -cp out Harness test "$PWD/app/src/main/assets/web"
 - `app/src/main/assets/web/` the website guests see (`index.html`, `pdfview.html`, PDF.js).
 - `app/src/main/java/.../*.kt` the Compose app; `ui/Theme.kt` and the `:root{}` block of `index.html` share one palette.
 
-Copyright (c) 2026 DEMON_GOD. All rights reserved. See `LICENSE` and `NOTICE.md`.
+## Build the APK
+1. Install [Android Studio](https://developer.android.com/studio) (it includes the Android SDK and the JDK it needs).
+2. **File -> Open** and choose this folder. Wait for the Gradle sync to finish (first time it downloads dependencies).
+3. Test: connect a phone with USB debugging on (or start an emulator) and press **Run**.
+4. Debug APK: **Build -> Build Bundle(s) / APK(s) -> Build APK(s)**, then click *locate*. The file is `app/build/outputs/apk/debug/app-debug.apk`.
+5. Release APK for sharing: **Build -> Generate Signed App Bundle / APK -> APK**, create a keystore once (keep it and its passwords safe), choose **release**. The file is in `app/release/`.
+6. Install on a phone: copy the APK over and open it (allow "Install unknown apps" for your file manager), or `adb install app-debug.apk`.
+
+Command line instead: `./gradlew assembleDebug` (needs `ANDROID_HOME` pointing at the Android SDK; use `gradlew.bat` on Windows).
+
+## Rights
+Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved. The source code, the design, the logo and the name of this project belong to DEMON_GOD, and nothing here may be copied, redistributed or sold without written permission (see `LICENSE`).
+Third-party libraries keep their own owners and licenses, listed in `NOTICE.md`; those rights belong to their authors.

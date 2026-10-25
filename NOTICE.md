@@ -1,6 +1,6 @@
 # Notice
 
-LocalShare v2.0.0, Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved. See `LICENSE`.
+LocalShare v2.2.0, Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved. See `LICENSE`.
 
 ## Third-party components
 | Component | Used for | License |
@@ -12,3 +12,5 @@ LocalShare v2.0.0, Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved
 
 The v2 feature ideas (login with session time, upload/download control, activity log, ZIP, QR code)
 were inspired by the public project HTTP FS by tiarait. No code from it is used.
+
+All other code, design, text, logo and artwork are the original work of DEMON_GOD. Third-party rights remain with their respective owners.
