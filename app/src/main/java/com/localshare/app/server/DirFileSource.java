@@ -62,14 +62,30 @@ public final class DirFileSource implements FileSource {
         return new FileOutputStream(f);
     }
 
+    private static boolean deleteTree(File f) throws IOException {
+        if (f.isDirectory() && f.getCanonicalPath().equals(f.getAbsolutePath())) { // never follow a link out of the folder
+            File[] kids = f.listFiles();
+            if (kids != null) for (File k : kids) if (!deleteTree(k)) return false;
+        }
+        return f.delete();
+    }
+
     @Override public boolean delete(List<String> path) throws IOException {
         File f = resolve(path);
-        return f != null && f.isFile() && f.delete();
+        return f != null && !path.isEmpty() && deleteTree(f);
+    }
+
+    @Override public boolean move(List<String> path, List<String> toDir) throws IOException {
+        File f = resolve(path), d = resolve(toDir);
+        if (f == null || d == null || path.isEmpty() || !d.isDirectory()) return false;
+        if (f.isDirectory() && (d.getCanonicalPath() + File.separator).startsWith(f.getCanonicalPath() + File.separator)) return false;
+        File to = new File(d, f.getName());
+        return !to.exists() && f.renameTo(to);
     }
 
     @Override public boolean rename(List<String> path, String newName) throws IOException {
         File f = resolve(path);
-        if (f == null || !f.isFile() || f.getParentFile() == null) return false;
+        if (f == null || path.isEmpty() || f.getParentFile() == null) return false;
         File to = new File(f.getParentFile(), newName);
         return !to.exists() && f.renameTo(to);
     }

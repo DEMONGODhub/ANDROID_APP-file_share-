@@ -73,6 +73,12 @@ public final class CompositeFileSource implements FileSource {
         return m != null && path.size() > 1 && m.delete(rest(path));
     }
 
+    @Override public boolean move(List<String> path, List<String> toDir) throws IOException {
+        FileSource m = mount(path);
+        if (m == null || path.size() < 2 || toDir.isEmpty() || !toDir.get(0).equals(path.get(0))) return false; // inside one shared folder only
+        return m.move(rest(path), rest(toDir));
+    }
+
     @Override public boolean rename(List<String> path, String newName) throws IOException {
         FileSource m = mount(path);
         return m != null && path.size() > 1 && m.rename(rest(path), newName);

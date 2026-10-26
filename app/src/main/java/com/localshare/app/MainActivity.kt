@@ -8,12 +8,16 @@ import android.os.Bundle
 import android.os.Environment
 import android.webkit.CookieManager
 import android.webkit.URLUtil
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -102,6 +106,12 @@ private fun App() {
 @Composable
 private fun HostBrowser(port: Int, token: String, onClose: () -> Unit) {
     var web by remember { mutableStateOf<WebView?>(null) }
+    // lets the host page's Upload button and profile picture chooser open Android's file picker
+    var pending by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
+    val chooser = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        pending?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
+        pending = null
+    }
     BackHandler { web?.takeIf { it.canGoBack() }?.goBack() ?: onClose() }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,6 +128,13 @@ private fun HostBrowser(port: Int, token: String, onClose: () -> Unit) {
                     settings.mediaPlaybackRequiresUserGesture = false
                     setBackgroundColor(0xFF17140F.toInt())
                     webViewClient = WebViewClient()
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onShowFileChooser(w: WebView?, cb: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+                            pending?.onReceiveValue(null)
+                            pending = cb
+                            return try { chooser.launch(params.createIntent()); true } catch (e: Exception) { pending = null; cb.onReceiveValue(null); false }
+                        }
+                    }
                     setDownloadListener { url, agent, disposition, mime, _ -> download(ctx, url, agent, disposition, mime) }
                     loadUrl("http://127.0.0.1:$port/#ht=$token")
                     web = this

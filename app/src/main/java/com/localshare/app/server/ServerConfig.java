@@ -34,9 +34,20 @@ public final class ServerConfig {
     public volatile boolean allowDelete = false;
     /** Game-only hosting: nobody but the host can see any file. */
     public volatile boolean gameOnly = false;
+    /** 0 = PvP (endless, respawn), 1 = Battle Royale (rounds, shrinking zone). */
+    public volatile int gameMode = 0;
+
+    /** Switches the game mode live; the app saves it through {@link #onChange}. */
+    public void setGameMode(int m) {
+        int v = m == 1 ? 1 : 0;
+        if (gameMode != v) {
+            gameMode = v;
+            changed();
+        }
+    }
 
     /** Per-device extras the host can grant (or restrict) from the Devices tab. */
-    public static final int P_DELETE = 1, P_RENAME = 2, P_EDIT = 4, P_GAME_ONLY = 8, P_ALL = 15;
+    public static final int P_DELETE = 1, P_RENAME = 2, P_EDIT = 4, P_GAME_ONLY = 8, P_UPLOAD = 16, P_MOVE = 32, P_ALL = 63;
     private final ConcurrentHashMap<String, Integer> perms = new ConcurrentHashMap<String, Integer>();
 
     /** Key a device keeps across sign-ins: its browser id, or its IP address when it has none. */

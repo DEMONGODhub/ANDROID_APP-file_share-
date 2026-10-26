@@ -5,7 +5,7 @@ LocalShare v2.2.0, Copyright (c) 2026 DEMON_GOD (@demongod). All rights reserved
 ## Third-party components
 | Component | Used for | License |
 |---|---|---|
-| PDF.js (Mozilla), `assets/web/pdf*.js` | PDF viewer page | Apache-2.0 |
+| PDF.js (Mozilla), `assets/web/pdf*.js` | PDF viewer page; the reader's search, thumbnails and text layer follow the design of PDF.js's own viewer | Apache-2.0 |
 | AndroidX, Jetpack Compose, Material 3 (Google) | App interface | Apache-2.0 |
 | Kotlin, kotlinx.coroutines (JetBrains) | Language and concurrency | Apache-2.0 |
 | ZXing core | QR codes | Apache-2.0 |

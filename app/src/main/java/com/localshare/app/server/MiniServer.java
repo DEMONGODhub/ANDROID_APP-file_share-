@@ -56,6 +56,9 @@ public final class MiniServer {
         final boolean host;
         final long since = System.currentTimeMillis();
         volatile long lastSeen = since;
+        volatile String avKey = "";
+        volatile byte[] avData;
+        volatile String avMime = "";
 
         Session(String token, String id, String name, String ip, String device, boolean host) {
             this.token = token;
@@ -322,7 +325,7 @@ public final class MiniServer {
             } catch (NumberFormatException e) {
                 return null;
             }
-            if (len >= 0 && r.method.equals("POST") && (r.path.equals("/api/upload") || r.path.equals("/api/save"))) {
+            if (len >= 0 && r.method.equals("POST") && (r.path.equals("/api/upload") || r.path.equals("/api/save") || r.path.equals("/api/avatar"))) {
                 r.bodyLen = len;
                 return r;
             }
@@ -423,7 +426,7 @@ public final class MiniServer {
     }
 
     private boolean canUpload(Session s) {
-        return s != null && (s.host || (cfg.allowUploads && !gameOnly(s)));
+        return s != null && (s.host || (!gameOnly(s) && (cfg.allowUploads || (permsOf(s) & ServerConfig.P_UPLOAD) != 0)));
     }
 
     private boolean canDelete(Session s) {
@@ -432,6 +435,10 @@ public final class MiniServer {
 
     private boolean canRename(Session s) {
         return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_RENAME) != 0));
+    }
+
+    private boolean canMove(Session s) {
+        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_MOVE) != 0));
     }
 
     private boolean canEdit(Session s) {
@@ -584,11 +591,11 @@ public final class MiniServer {
         }
         if (get && path.equals("/api/info")) {
             Session s = sessionOf(r);
-            json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameEnabled\":" + (cfg.gameEnabled || gameOnly(s))
+            json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameMode\":" + cfg.gameMode + ",\"gameEnabled\":" + (cfg.gameEnabled || gameOnly(s))
                     + ",\"max\":" + cfg.maxClients + ",\"active\":" + activeCount(null) + ",\"authed\":" + (s != null)
                     + ",\"name\":" + Util.q(s == null ? "" : s.name) + ",\"host\":" + (s != null && s.host)
                     + ",\"canUpload\":" + canUpload(s) + ",\"canDelete\":" + canDelete(s) + ",\"canRename\":" + canRename(s)
-                    + ",\"canEdit\":" + canEdit(s) + ",\"gameOnly\":" + gameOnly(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
+                    + ",\"canMove\":" + canMove(s) + ",\"canEdit\":" + canEdit(s) + ",\"gameOnly\":" + gameOnly(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
             return true;
         }
         if (post && path.equals("/api/login")) {
@@ -605,7 +612,7 @@ public final class MiniServer {
             Session s = auth(r, out, isHead);
             if (s == null) return true;
             json(out, isHead, 200, "{\"ok\":true,\"up\":" + canUpload(s) + ",\"del\":" + canDelete(s) + ",\"ren\":" + canRename(s)
-                    + ",\"edt\":" + canEdit(s) + ",\"go\":" + gameOnly(s) + "}");
+                    + ",\"mov\":" + canMove(s) + ",\"edt\":" + canEdit(s) + ",\"go\":" + gameOnly(s) + "}");
             return true;
         }
         if (get && path.equals("/api/list")) {
@@ -641,10 +648,57 @@ public final class MiniServer {
             if (s == null) return true;
             return rename(r, s, out);
         }
+        if (post && path.equals("/api/move")) {
+            Session s = authFiles(r, out, false);
+            if (s == null) return true;
+            return move(r, s, out);
+        }
         if (post && path.equals("/api/save")) {
             Session s = authFiles(r, out, false);
             if (s == null) return false;
             return save(r, s, in, out);
+        }
+        if (post && path.equals("/api/avatar")) {
+            Session s = auth(r, out, false);
+            if (s == null) return false;
+            return setAvatar(r, s, in, out);
+        }
+        if (get && path.equals("/api/avatar")) {
+            if (auth(r, out, isHead) == null) return true;
+            return avatar(r, out, isHead);
+        }
+        if (get && path.equals("/api/players")) {
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            if (!s.host) {
+                json(out, isHead, 403, err("Only the host can see this"));
+                return true;
+            }
+            json(out, isHead, 200, game == null ? "[]" : game.rosterJson());
+            return true;
+        }
+        if (post && path.equals("/api/gamemode")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!s.host || !sameOrigin(r)) {
+                json(out, false, 403, err("Only the host can change the game mode"));
+                return true;
+            }
+            cfg.setGameMode("1".equals(r.form.get("mode")) ? 1 : 0);
+            cfg.log.add("mode", "Host", "", cfg.gameMode == 1 ? "Battle Royale" : "PvP");
+            json(out, false, 200, "{\"ok\":true,\"mode\":" + cfg.gameMode + "}");
+            return true;
+        }
+        if (post && path.equals("/api/power")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!s.host || !sameOrigin(r)) {
+                json(out, false, 403, err("Only the host can give powers"));
+                return true;
+            }
+            int n = grantPower(r.form.get("id"), r.form.get("power"));
+            json(out, false, n > 0 ? 200 : 400, n > 0 ? "{\"ok\":true,\"n\":" + n + "}" : err("No such player or power"));
+            return true;
         }
         if (get && path.equals("/ws")) return websocket(r, sock, in, out);
         json(out, isHead, 404, err("not found"));
@@ -1064,8 +1118,8 @@ public final class MiniServer {
         } catch (IOException ex) {
             e = null;
         }
-        if (e == null || e.dir) {
-            json(out, false, e == null ? 404 : 400, err(e == null ? "not found" : "Only files can be renamed"));
+        if (e == null) {
+            json(out, false, 404, err("not found"));
             return true;
         }
         List<String> to = new ArrayList<String>(sg.subList(0, sg.size() - 1));
@@ -1085,11 +1139,73 @@ public final class MiniServer {
             ok = false;
         }
         if (!ok) {
-            json(out, false, 500, err("Could not rename this file"));
+            json(out, false, 500, err("Could not rename this"));
             return true;
         }
         if (!s.host) cfg.log.add("rename", s.name, s.ip, pathStr(sg) + " -> " + name);
         json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + "}");
+        return true;
+    }
+
+    /** Moves a file or folder into another folder of the same shared folder. */
+    private boolean move(Req r, Session s, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return true;
+        }
+        if (!canMove(s)) {
+            json(out, false, 403, err("Moving is not allowed for this device"));
+            return true;
+        }
+        List<String> sg = segs(r.form.get("path")), to = segs(r.form.get("to"));
+        if (sg == null || to == null || sg.size() < 2 || to.isEmpty()) {
+            json(out, false, 400, err("Pick a folder inside the same shared folder"));
+            return true;
+        }
+        if (!sg.get(0).equals(to.get(0))) {
+            json(out, false, 400, err("Files can only be moved inside the same shared folder"));
+            return true;
+        }
+        FileSource.Entry e, d;
+        try {
+            e = fs.stat(sg);
+            d = fs.stat(to);
+        } catch (IOException ex) {
+            e = d = null;
+        }
+        if (e == null || d == null) {
+            json(out, false, 404, err("not found"));
+            return true;
+        }
+        if (!d.dir) {
+            json(out, false, 400, err("Pick a folder"));
+            return true;
+        }
+        if (e.dir && to.size() >= sg.size() && to.subList(0, sg.size()).equals(sg)) {
+            json(out, false, 400, err("A folder cannot be moved into itself"));
+            return true;
+        }
+        List<String> parent = sg.subList(0, sg.size() - 1);
+        if (parent.equals(to)) {
+            json(out, false, 200, "{\"ok\":true}");
+            return true;
+        }
+        boolean ok;
+        try {
+            if (fs.stat(child(to, e.name)) != null) {
+                json(out, false, 409, err("There is already something with that name there"));
+                return true;
+            }
+            ok = fs.move(sg, to);
+        } catch (IOException ex) {
+            ok = false;
+        }
+        if (!ok) {
+            json(out, false, 500, err("Could not move this"));
+            return true;
+        }
+        if (!s.host) cfg.log.add("move", s.name, s.ip, pathStr(sg) + " -> " + pathStr(to));
+        json(out, false, 200, "{\"ok\":true}");
         return true;
     }
 
@@ -1150,6 +1266,76 @@ public final class MiniServer {
         return true;
     }
 
+    private static final int MAX_AVATAR_BYTES = 16 * 1024;
+    private int avatarSeq;
+
+    private static String imageType(byte[] b) {
+        if (b.length > 8 && (b[0] & 0xff) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') return "image/png";
+        if (b.length > 3 && (b[0] & 0xff) == 0xFF && (b[1] & 0xff) == 0xD8 && (b[2] & 0xff) == 0xFF) return "image/jpeg";
+        if (b.length > 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') return "image/webp";
+        return null;
+    }
+
+    /** A guest's profile picture: one of the built-in cats and dogs (k=d1..d6) or a small uploaded image (k=c). */
+    private boolean setAvatar(Req r, Session s, InputStream in, OutputStream out) throws IOException {
+        if (!sameOrigin(r)) {
+            json(out, false, 403, err("origin"));
+            return false;
+        }
+        String k = r.q.get("k");
+        if (k != null && k.matches("d[1-" + GameHub.DEFAULT_AVATARS + "]") && r.bodyLen <= 0) {
+            s.avData = null;
+            s.avKey = k;
+            game.setAvatar(s.token, k);
+            json(out, false, 200, "{\"ok\":true,\"key\":" + Util.q(k) + "}");
+            return true;
+        }
+        if (!"c".equals(k) || r.bodyLen <= 0 || r.bodyLen > MAX_AVATAR_BYTES) {
+            json(out, false, r.bodyLen > MAX_AVATAR_BYTES ? 413 : 400, err(r.bodyLen > MAX_AVATAR_BYTES ? "Picture is too big (16 KB at most after resizing)" : "bad request"));
+            return false;
+        }
+        byte[] b = new byte[(int) r.bodyLen];
+        int o = 0;
+        while (o < b.length) {
+            int n = in.read(b, o, b.length - o);
+            if (n < 0) return false;
+            o += n;
+        }
+        String type = imageType(b);
+        if (type == null) {
+            json(out, false, 415, err("Use a PNG, JPEG or WebP picture"));
+            return true;
+        }
+        s.avData = b;
+        s.avMime = type;
+        String key = "c" + (++avatarSeq);
+        s.avKey = key;
+        game.setAvatar(s.token, key);
+        json(out, false, 200, "{\"ok\":true,\"key\":" + Util.q(key) + "}");
+        return true;
+    }
+
+    /** GET /api/avatar?id=<player id>: the uploaded picture of a connected guest. */
+    private boolean avatar(Req r, OutputStream out, boolean isHead) throws IOException {
+        String id = r.q.get("id");
+        for (Session s : sessions.values()) {
+            byte[] d = s.avData;
+            if (s.id.equals(id) && d != null) {
+                send(out, isHead, 200, s.avMime, d, "Cache-Control: private, max-age=3600");
+                return true;
+            }
+        }
+        json(out, isHead, 404, err("no picture"));
+        return true;
+    }
+
+    /** Host-side: give a super power to one player or to everyone ("all"). Only the host can call this. */
+    public int grantPower(String id, String power) {
+        if (power == null) return 0;
+        cfg.log.add("power", "Host", "", power + (id == null || id.equals("all") ? " to everyone" : ""));
+        return game == null ? 0 : game.grant(id, power);
+    }
+
     private boolean delete(Req r, Session s, OutputStream out) throws IOException {
         if (!sameOrigin(r)) {
             json(out, false, 403, err("origin"));
@@ -1175,8 +1361,12 @@ public final class MiniServer {
             json(out, false, 404, err("not found"));
             return true;
         }
-        if (e.dir) {
-            json(out, false, 400, err("Only files can be deleted"));
+        if (sg.size() < 2) {
+            json(out, false, 400, err("A shared folder can only be removed from the app"));
+            return true;
+        }
+        if (e.dir && !"1".equals(r.form.get("recursive"))) {
+            json(out, false, 400, err("Confirm deleting the folder and everything in it"));
             return true;
         }
         boolean ok;
@@ -1186,7 +1376,7 @@ public final class MiniServer {
             ok = false;
         }
         if (!ok) {
-            json(out, false, 500, err("Could not delete this file"));
+            json(out, false, 500, err("Could not delete this"));
             return true;
         }
         cfg.log.add("delete", s.name, s.ip, pathStr(sg));
@@ -1216,7 +1406,7 @@ public final class MiniServer {
         }
         out.write(("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + acc + "\r\n\r\n").getBytes(LATIN1));
         out.flush();
-        game.run(s.token, s.id, s.name, sock, in, out);
+        game.run(s.token, s.id, s.name, s.avKey, sock, in, out);
         return false;
     }
 }

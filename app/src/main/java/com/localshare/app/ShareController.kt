@@ -36,6 +36,7 @@ data class UiState(
     val allowUploads: Boolean = false,
     val allowDelete: Boolean = false,
     val gameOnly: Boolean = false,
+    val gameMode: Int = 0,
     val sessionHours: Int = 6,
     val error: String? = null,
 )
@@ -69,11 +70,12 @@ object ShareController {
         cfg.allowUploads = prefs.allowUploads
         cfg.allowDelete = prefs.allowDelete
         cfg.gameOnly = prefs.gameOnly
+        cfg.gameMode = prefs.gameMode
         cfg.gameEnabled = prefs.gameEnabled || prefs.gameOnly
         cfg.loadPerms(prefs.loadPerms())
         cfg.sessionMs = prefs.sessionHours * 3600000L
         cfg.setBlocks(prefs.loadBlocks())
-        cfg.onChange = Runnable { prefs.saveBlocks(cfg.blocks()); prefs.savePerms(cfg.permsSnapshot()); refresh() }
+        cfg.onChange = Runnable { prefs.saveBlocks(cfg.blocks()); prefs.savePerms(cfg.permsSnapshot()); prefs.gameMode = cfg.gameMode; refresh() }
         refresh()
     }
 
@@ -83,6 +85,7 @@ object ShareController {
     fun setGame(v: Boolean) { prefs.gameEnabled = v; cfg.gameEnabled = v || prefs.gameOnly; refresh() }
     /** Game-only hosting needs no folders: guests only ever see the game. */
     fun setGameOnly(v: Boolean) { prefs.gameOnly = v; cfg.gameOnly = v; cfg.gameEnabled = prefs.gameEnabled || v; refresh() }
+    fun setGameMode(m: Int) { cfg.setGameMode(m) }
     fun setDevicePerms(id: String, perms: Int) { server?.setPerms(id, perms); refresh() }
     fun setPort(v: Int) { prefs.port = v; refresh() }
     fun setUploads(v: Boolean) { prefs.allowUploads = v; cfg.allowUploads = v; refresh() }
@@ -178,6 +181,7 @@ object ShareController {
             allowUploads = cfg.allowUploads,
             allowDelete = cfg.allowDelete,
             gameOnly = cfg.gameOnly,
+            gameMode = cfg.gameMode,
             sessionHours = prefs.sessionHours,
             error = _state.value.error.takeIf { s == null },
         )

@@ -11,71 +11,183 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{display:flex;flex-direction:column}
-header{display:flex;align-items:center;gap:6px;padding:8px 10px;padding-top:max(8px,env(safe-area-inset-top));background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:5}
-header button,header a{min-width:44px;height:44px;border-radius:22px;display:inline-grid;place-items:center;color:var(--text);background:none;border:0;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;padding:0 12px}
+header{display:flex;align-items:center;gap:2px;padding:6px 8px;padding-top:max(6px,env(safe-area-inset-top));background:var(--surface);border-bottom:1px solid var(--outline);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+header button,header a{min-width:40px;height:40px;border-radius:20px;display:inline-grid;place-items:center;color:var(--text);background:none;border:0;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;padding:0 10px}
 header button:hover,header a:hover{background:var(--surface2)}
-header button:focus-visible,header a:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
-#title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-#zv{min-width:48px;text-align:center;color:var(--muted);font-variant-numeric:tabular-nums}
-#count{color:var(--muted);font-size:13px;white-space:nowrap}
+header button[aria-pressed=true]{background:var(--surface2);color:var(--primary)}
+header button:focus-visible,header a:focus-visible,input:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+header svg{display:block}
+#title{flex:1;min-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;padding:0 6px}
+.sep{width:1px;height:22px;background:var(--outline);margin:0 4px}
+#pn{width:46px;height:34px;text-align:center;background:var(--surface2);color:var(--text);border:1px solid var(--outline);border-radius:8px;font:inherit}
+#count,#zv,#sc{color:var(--muted);font-size:13px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#zv{min-width:44px;text-align:center}
 #dl{background:var(--primary);color:var(--onprimary);font-size:14px}
 #dl:hover{background:var(--primary);filter:brightness(1.08)}
-main{flex:1;overflow:auto;padding:12px 0 40px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-overflow-scrolling:touch}
-canvas{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.4);flex:none}
+#sbar{display:none;align-items:center;gap:4px;width:100%;padding:2px 4px 4px}
+#sbar.on{display:flex}
+#q{flex:1;min-width:0;height:36px;background:var(--surface2);color:var(--text);border:1px solid var(--outline);border-radius:18px;padding:0 14px;font:inherit}
+#wrap{flex:1;display:flex;min-height:0}
+#side{display:none;width:140px;flex:none;overflow:auto;background:var(--surface);border-right:1px solid var(--outline);padding:10px 0;flex-direction:column;align-items:center;gap:10px}
+#side.on{display:flex}
+.th{border:2px solid transparent;border-radius:4px;padding:0;background:none;cursor:pointer;color:var(--muted);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.th.cur{border-color:var(--primary);color:var(--primary)}
+.th canvas{background:#fff;display:block;box-shadow:0 1px 6px rgba(0,0,0,.4)}
+main{flex:1;overflow:auto;padding:12px 0 40px;display:flex;flex-direction:column;align-items:center;gap:12px;-webkit-overflow-scrolling:touch;min-width:0}
+.pg{position:relative;flex:none;box-shadow:0 2px 14px rgba(0,0,0,.4);background:#fff}
+.pg canvas{display:block;width:100%;height:100%}
+body.sepia .pg canvas{filter:sepia(.55) brightness(.97)}
+body.dark .pg canvas{filter:invert(.92) hue-rotate(180deg)}
+.textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;opacity:1}
+.textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.textLayer ::selection{background:rgba(247,166,0,.4)}
+.textLayer .hit{background:rgba(255,220,0,.45);border-radius:2px}
+.textLayer .cur{background:rgba(247,120,0,.6);outline:2px solid rgba(247,120,0,.9)}
 #msg{margin:auto;text-align:center;color:var(--muted);padding:24px;max-width:420px}
 #msg a{color:var(--primary);font-weight:600}
-@media (max-width:560px){#zo,#zi,#zv{display:none}}
+#printarea{display:none}
+@media print{body>*:not(#printarea){display:none!important}#printarea{display:block}#printarea img{display:block;width:100%;page-break-after:always}}
+@media (max-width:640px){#side{width:96px}.hm{display:none}}
 </style>
 </head>
 <body>
 <header>
-  <button id="close" title="Close" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  <button id="close" title="Close (Esc)" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+  <button id="tb" title="Pages sidebar (t)" aria-label="Show page thumbnails" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5h4v4H3zm6 0h12v2H9zm0 4h12v2H9zM3 11h4v4H3zm6 4h12v2H9zM3 17h4v4H3zm6 0h12v2H9z"/></svg></button>
   <div id="title">PDF</div>
-  <span id="count"></span>
+  <button id="pp" title="Previous page (p)" aria-label="Previous page"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+  <input id="pn" inputmode="numeric" aria-label="Page number" value="1"><span id="count">/ 1</span>
+  <button id="pnx" title="Next page (n)" aria-label="Next page"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button>
+  <span class="sep hm"></span>
   <button id="zo" title="Zoom out (-)" aria-label="Zoom out">−</button>
-  <span id="zv">100%</span>
+  <span id="zv" class="hm">100%</span>
   <button id="zi" title="Zoom in (+)" aria-label="Zoom in">+</button>
+  <button id="fit" class="hm" title="Fit width / fit page (w)" aria-label="Switch fit width or fit page"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 5v14h18V5zm16 12H5V7h14zM7 9h2v6H7zm8 0h2v6h-2z"/></svg></button>
+  <button id="rot" title="Rotate (r)" aria-label="Rotate page"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.55 5.55 11 1v3.07a8 8 0 0 0 0 15.86v-2.02a6 6 0 0 1 0-11.82V10zM19.93 11a7.9 7.9 0 0 0-1.62-3.89l-1.42 1.42A5.9 5.9 0 0 1 17.91 11zM13 17.9v2.02a8 8 0 0 0 3.89-1.61l-1.44-1.44A5.9 5.9 0 0 1 13 17.9zm3.89-2.42 1.42 1.42A7.9 7.9 0 0 0 19.93 13h-2.02a5.9 5.9 0 0 1-1.02 2.48z"/></svg></button>
+  <button id="sb" title="Search (Ctrl+F)" aria-label="Search in this PDF" aria-pressed="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></button>
+  <button id="th" title="Page colours: normal, sepia, dark (c)" aria-label="Change page colours"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 1 0 0 18 1.5 1.5 0 0 0 1.1-2.5 1.5 1.5 0 0 1 1.1-2.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zM6.5 12a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg></button>
+  <button id="fs" class="hm" title="Full screen (f)" aria-label="Full screen"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg></button>
+  <button id="pr" class="hm" title="Print" aria-label="Print"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5a3 3 0 0 0-3 3v6h4v4h12v-4h4v-6a3 3 0 0 0-3-3zm-4 11H9v-5h6zm4-7a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM18 3H6v4h12z"/></svg></button>
   <a id="dl" download>Download</a>
+  <div id="sbar"><input id="q" type="search" placeholder="Find in this PDF" aria-label="Find in this PDF"><span id="sc"></span>
+    <button id="sp" aria-label="Previous match" title="Previous (Shift+Enter)"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg></button>
+    <button id="sn" aria-label="Next match" title="Next (Enter)"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg></button></div>
 </header>
-<main id="pages"><div id="msg">Loading…</div></main>
+<div id="wrap"><aside id="side" aria-label="Pages"></aside><main id="pages"><div id="msg">Loading…</div></main></div>
+<div id="printarea"></div>
 <script src="/static/pdf.min.js"></script>
 <script>
 "use strict";
+/* Reader features (search, thumbnails, text layer, rotate, colours, print) follow the design of Mozilla's PDF.js viewer, Apache-2.0. */
 const $=s=>document.querySelector(s);
 const path=new URLSearchParams(location.search).get("path")||"";
 const name=path.split("/").pop()||"PDF";
 const fileUrl="/api/file?path="+encodeURIComponent(path);
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 document.title=name;$("#title").textContent=name;$("#dl").href=fileUrl+"&dl=1";$("#dl").setAttribute("download",name);
 $("#close").onclick=()=>{window.close();setTimeout(()=>{if(history.length>1)history.back();else location.href="/"},150)};
-const box=$("#pages");let zoom=1,pages=[],doc=null,raf=0;
+const box=$("#pages"),side=$("#side");let zoom=1,fitMode="width",rotation=0,pages=[],doc=null,raf=0,curPage=1,mode=store.get("ls_pdfmode")||"";
+const pk="ls_pdfpage:"+path;
 function fail(html){box.innerHTML='<div id="msg">'+html+'</div>'}
-function fitWidth(){return Math.max(200,Math.min(box.clientWidth-16,1000))}
+function dims(p){return rotation%180?{w:p.h,h:p.w}:{w:p.w,h:p.h}}
+function baseW(){const a=Math.max(200,Math.min(box.clientWidth-16,1000));if(fitMode==="page"&&pages[0]){const d=dims(pages[0]);return Math.max(200,Math.min(a,(box.clientHeight-28)*d.w/d.h))}return a}
 function layout(){
-  const w=fitWidth()*zoom;
-  pages.forEach(p=>{p.c.style.width=w+"px";p.c.style.height=(w*p.h/p.w)+"px";p.scale=0});
+  const bw=baseW()*zoom;
+  pages.forEach(p=>{const d=dims(p),h=bw*d.h/d.w;p.el.style.width=bw+"px";p.el.style.height=h+"px";p.scale=0;p.tl.innerHTML="";p.cw=bw});
   $("#zv").textContent=Math.round(zoom*100)+"%";schedule();
 }
-function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;renderVisible()})}
+function schedule(){if(!raf)raf=requestAnimationFrame(()=>{raf=0;renderVisible();track()})}
 async function draw(p){
-  if(p.busy)return;p.busy=true;
+  if(p.busy)return;p.busy=true;const want=p.cw;
   try{
-    const dpr=Math.min(window.devicePixelRatio||1,2.5),w=fitWidth()*zoom,s=w/p.w*dpr;
-    const pg=await doc.getPage(p.n),vp=pg.getViewport({scale:s});
+    const d=dims(p),dpr=Math.min(window.devicePixelRatio||1,2.5),cs=want/d.w,s=cs*dpr;
+    const pg=await doc.getPage(p.n),vp=pg.getViewport({scale:s,rotation});
     const tmp=document.createElement("canvas");tmp.width=Math.floor(vp.width);tmp.height=Math.floor(vp.height);
     await pg.render({canvasContext:tmp.getContext("2d"),viewport:vp}).promise;
+    if(want!==p.cw){p.busy=false;schedule();return}
     p.c.width=tmp.width;p.c.height=tmp.height;p.c.getContext("2d").drawImage(tmp,0,0);p.scale=s;
+    p.tl.innerHTML="";
+    try{const tc=await pg.getTextContent();await pdfjsLib.renderTextLayer({textContentSource:tc,container:p.tl,viewport:pg.getViewport({scale:cs,rotation}),textDivs:p.divs=[]}).promise;mark(p)}catch(e){}
   }catch(e){}
   p.busy=false;
 }
 function renderVisible(){
   const r=box.getBoundingClientRect(),top=r.top-900,bot=r.bottom+900;
-  pages.forEach(p=>{const b=p.c.getBoundingClientRect();if(b.bottom>top&&b.top<bot&&!p.scale)draw(p)});
+  pages.forEach(p=>{const b=p.el.getBoundingClientRect();if(b.bottom>top&&b.top<bot&&!p.scale)draw(p)});
 }
-function setZoom(z){const keep=box.scrollTop/Math.max(1,box.scrollHeight);zoom=Math.max(.5,Math.min(3,z));layout();box.scrollTop=keep*box.scrollHeight}
+function track(){
+  const r=box.getBoundingClientRect(),mid=r.top+Math.min(r.height/3,200);let best=curPage;
+  for(const p of pages){const b=p.el.getBoundingClientRect();if(b.top<=mid&&b.bottom>mid){best=p.n;break}}
+  if(best!==curPage){curPage=best;showPage()}
+}
+function showPage(){
+  if(document.activeElement!==$("#pn"))$("#pn").value=curPage;store.set(pk,curPage);
+  side.querySelectorAll(".th").forEach(b=>b.classList.toggle("cur",+b.dataset.n===curPage));
+  const c=side.querySelector(".th.cur");if(c&&side.classList.contains("on")){const s=side.getBoundingClientRect(),e=c.getBoundingClientRect();if(e.top<s.top||e.bottom>s.bottom)c.scrollIntoView({block:"nearest"})}
+}
+function go(n,smooth){n=Math.max(1,Math.min(pages.length,n|0||1));const p=pages[n-1];if(!p)return;box.scrollTo({top:p.el.offsetTop-box.offsetTop-8,behavior:smooth?"smooth":"auto"});curPage=n;showPage()}
+function setZoom(z){const keep=box.scrollTop/Math.max(1,box.scrollHeight);zoom=Math.max(.4,Math.min(4,z));layout();box.scrollTop=keep*box.scrollHeight}
 $("#zi").onclick=()=>setZoom(zoom+.25);$("#zo").onclick=()=>setZoom(zoom-.25);
+$("#fit").onclick=()=>{fitMode=fitMode==="width"?"page":"width";zoom=1;layout();go(curPage)};
+$("#rot").onclick=()=>{rotation=(rotation+90)%360;layout();go(curPage);buildThumbs()};
+$("#pp").onclick=()=>go(curPage-1,true);$("#pnx").onclick=()=>go(curPage+1,true);
+$("#pn").addEventListener("keydown",e=>{if(e.key==="Enter"){go(+$("#pn").value);$("#pn").blur()}e.stopPropagation()});
+$("#pn").addEventListener("focus",e=>e.target.select());$("#pn").addEventListener("blur",()=>{$("#pn").value=curPage});
+function setMode(m){mode=m;document.body.classList.toggle("sepia",m==="sepia");document.body.classList.toggle("dark",m==="dark");store.set("ls_pdfmode",m)}
+$("#th").onclick=()=>setMode(mode===""?"sepia":mode==="sepia"?"dark":"");setMode(mode);
+$("#fs").onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})};
+$("#pr").onclick=async()=>{
+  const pa=$("#printarea");pa.innerHTML="";$("#pr").disabled=true;
+  try{for(const p of pages){const pg=await doc.getPage(p.n),vp=pg.getViewport({scale:1.6,rotation}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;const im=new Image();im.src=c.toDataURL("image/jpeg",.85);pa.appendChild(im)}
+  await Promise.all([...pa.children].map(i=>i.decode&&i.decode().catch(()=>{})));print()}catch(e){}
+  $("#pr").disabled=false;
+};
+/* thumbnails */
+let thObs=null;
+function buildThumbs(){
+  side.innerHTML="";if(thObs)thObs.disconnect();if(!pages.length)return;
+  thObs=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting){thObs.unobserve(en.target);thumb(en.target)}}),{root:side,rootMargin:"300px"});
+  pages.forEach(p=>{const d=dims(p),w=side.clientWidth>110?100:70,b=document.createElement("button");b.className="th";b.dataset.n=p.n;b.setAttribute("aria-label","Go to page "+p.n);
+    const c=document.createElement("canvas");c.width=w;c.height=Math.round(w*d.h/d.w);b.appendChild(c);b.appendChild(document.createTextNode(p.n));b.onclick=()=>go(p.n,true);side.appendChild(b);if(side.classList.contains("on"))thObs.observe(b)});
+  showPage();
+}
+async function thumb(b){const p=pages[b.dataset.n-1],c=b.querySelector("canvas");try{const pg=await doc.getPage(p.n),v=pg.getViewport({scale:1,rotation}),vp=pg.getViewport({scale:c.width/v.width,rotation});await pg.render({canvasContext:c.getContext("2d"),viewport:vp}).promise}catch(e){}}
+$("#tb").onclick=()=>{const on=side.classList.toggle("on");$("#tb").setAttribute("aria-pressed",on);if(on){buildThumbs();setTimeout(layout,0)}else setTimeout(layout,0)};
+/* search */
+let texts=null,hits=[],hi=-1,query="";
+async function loadTexts(){if(texts)return texts;texts=[];for(let i=1;i<=doc.numPages;i++){try{const tc=await(await doc.getPage(i)).getTextContent();texts.push(tc.items.map(x=>x.str))}catch(e){texts.push([])}}return texts}
+function mark(p){
+  if(!p.divs)return;p.divs.forEach((d,i)=>{d.classList.remove("hit","cur")});
+  if(!query)return;const q=query.toLowerCase();
+  p.divs.forEach(d=>{if(d.textContent.toLowerCase().includes(q))d.classList.add("hit")});
+  const h=hits[hi];if(h&&h.n===p.n){const d=p.divs.filter(x=>x.classList.contains("hit"))[h.k];if(d)d.classList.add("cur")}
+}
+async function doSearch(){
+  query=$("#q").value.trim();hits=[];hi=-1;
+  if(!query){$("#sc").textContent="";pages.forEach(mark);return}
+  const T=await loadTexts(),q=query.toLowerCase();
+  T.forEach((items,i)=>{let k=0;items.forEach(s=>{if(s.toLowerCase().includes(q))hits.push({n:i+1,k:k++})})});
+  $("#sc").textContent=hits.length?"":"No matches";
+  if(hits.length)jump(0);else pages.forEach(mark);
+}
+function jump(i){
+  if(!hits.length)return;hi=(i+hits.length)%hits.length;const h=hits[hi];$("#sc").textContent=(hi+1)+" of "+hits.length;
+  go(h.n);pages.forEach(mark);
+  setTimeout(()=>{const p=pages[h.n-1],d=p.divs&&p.divs.filter(x=>x.classList.contains("hit"))[h.k];if(d)d.scrollIntoView({block:"center",behavior:"smooth"})},250);
+}
+$("#sb").onclick=()=>{const on=$("#sbar").classList.toggle("on");$("#sb").setAttribute("aria-pressed",on);if(on)$("#q").focus();else{$("#q").value="";doSearch()}setTimeout(layout,0)};
+let qt=0;$("#q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(doSearch,250)});
+$("#q").addEventListener("keydown",e=>{e.stopPropagation();if(e.key==="Enter"){e.preventDefault();jump(hi+(e.shiftKey?-1:1))}else if(e.key==="Escape")$("#sb").click()});
+$("#sn").onclick=()=>jump(hi+1);$("#sp").onclick=()=>jump(hi-1);
 addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="f"){e.preventDefault();if(!$("#sbar").classList.contains("on"))$("#sb").click();else $("#q").select();return}
   if(e.ctrlKey||e.metaKey||e.altKey)return;
-  if(e.key==="+"||e.key==="=")setZoom(zoom+.25);else if(e.key==="-")setZoom(zoom-.25);else if(e.key==="0")setZoom(1);else if(e.key==="Escape")$("#close").click();
+  const k=e.key;
+  if(k==="+"||k==="=")setZoom(zoom+.25);else if(k==="-")setZoom(zoom-.25);else if(k==="0")setZoom(1);
+  else if(k==="n"||k==="ArrowRight"||k==="PageDown"&&e.shiftKey)go(curPage+1,true);else if(k==="p"||k==="ArrowLeft")go(curPage-1,true);
+  else if(k==="Home"){e.preventDefault();go(1)}else if(k==="End"){e.preventDefault();go(pages.length)}
+  else if(k==="r")$("#rot").click();else if(k==="f")$("#fs").click();else if(k==="t")$("#tb").click();else if(k==="c")$("#th").click();else if(k==="w")$("#fit").click();
+  else if(k==="Escape"){if(document.fullscreenElement)return;$("#close").click()}
 });
 box.addEventListener("scroll",schedule,{passive:true});
 let rw=0;addEventListener("resize",()=>{clearTimeout(rw);rw=setTimeout(layout,150)});
@@ -89,9 +201,12 @@ let rw=0;addEventListener("resize",()=>{clearTimeout(rw);rw=setTimeout(layout,15
     pdfjsLib.GlobalWorkerOptions.workerSrc="/static/pdf.worker.min.js";
     doc=await pdfjsLib.getDocument({url:fileUrl}).promise;
     const first=await doc.getPage(1),v=first.getViewport({scale:1});
-    box.innerHTML="";$("#count").textContent=doc.numPages+(doc.numPages===1?" page":" pages");
-    for(let i=1;i<=doc.numPages;i++){const c=document.createElement("canvas");c.setAttribute("role","img");c.setAttribute("aria-label","Page "+i);box.appendChild(c);pages.push({n:i,c,w:v.width,h:v.height,scale:0,busy:false})}
+    box.innerHTML="";$("#count").textContent="/ "+doc.numPages;
+    for(let i=1;i<=doc.numPages;i++){const el=document.createElement("div");el.className="pg";el.setAttribute("role","img");el.setAttribute("aria-label","Page "+i);
+      const c=document.createElement("canvas"),tl=document.createElement("div");tl.className="textLayer";el.appendChild(c);el.appendChild(tl);box.appendChild(el);
+      pages.push({n:i,el,c,tl,w:v.width,h:v.height,scale:0,busy:false,cw:0,divs:null})}
     layout();
+    const last=parseInt(store.get(pk)||"1",10);if(last>1&&last<=doc.numPages)setTimeout(()=>go(last),60);
   }catch(e){fail("This PDF could not be shown here. <a href=\""+fileUrl+"&dl=1\">Download it</a> instead.")}
 })();
 </script>

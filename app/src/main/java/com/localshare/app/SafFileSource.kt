@@ -8,6 +8,7 @@ import android.graphics.Point
 import android.graphics.pdf.PdfRenderer
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.webkit.MimeTypeMap
@@ -126,19 +127,37 @@ class SafFileSource(context: Context, private val tree: Uri) : FileSource {
         return cr.openOutputStream(made, "w") ?: throw IOException("cannot write")
     }
 
+    /** Forgets what we know about a path and everything below it. */
+    private fun invalidate(path: List<String>) {
+        val k = path.joinToString("/")
+        for (key in cache.keys.toList()) if (key == k || key.startsWith("$k/")) cache.remove(key)
+    }
+
     override fun delete(path: List<String>): Boolean {
+        if (path.isEmpty()) return false
         val node = resolve(path) ?: return false
-        if (node.dir) return false
         val ok = try { DocumentsContract.deleteDocument(cr, docUri(node)) } catch (e: Exception) { false }
-        if (ok) cache.remove(path.joinToString("/"))
+        if (ok) invalidate(path)
         return ok
     }
 
-    override fun rename(path: List<String>, newName: String): Boolean {
+    override fun move(path: List<String>, toDir: List<String>): Boolean {
+        if (Build.VERSION.SDK_INT < 24 || path.isEmpty()) return false
         val node = resolve(path) ?: return false
-        if (node.dir) return false
+        val parent = resolve(path.dropLast(1)) ?: return false
+        val dest = resolve(toDir)?.takeIf { it.dir } ?: return false
+        if (node.dir && toDir.size >= path.size && toDir.subList(0, path.size) == path) return false
+        if (children(dest, toDir.joinToString("/"))?.any { it.name == node.name } == true) return false
+        val moved = try { DocumentsContract.moveDocument(cr, docUri(node), docUri(parent), docUri(dest)) } catch (e: Exception) { null }
+        invalidate(path)
+        return moved != null
+    }
+
+    override fun rename(path: List<String>, newName: String): Boolean {
+        if (path.isEmpty()) return false
+        val node = resolve(path) ?: return false
         val made = try { DocumentsContract.renameDocument(cr, docUri(node), newName) } catch (e: Exception) { null }
-        cache.remove(path.joinToString("/"))
+        invalidate(path)
         return made != null
     }
 

@@ -8,7 +8,10 @@ Kotlin + Jetpack Compose (Material 3). The server is pure Java with no third-par
 - Photos and PDFs open in a **new tab**. A **⋮ menu** on every item: open, download, copy link, delete.
 - Smooth browsing: server thumbnails, lazy loading, chunked lists, stale-while-revalidate listings.
 - Guest controls: upload, delete, session length, password, max devices, block by device. Activity log.
-- **Per-device settings** (gear button next to Kick and Block on the Devices tab): let one device delete, rename or edit text files, or limit it to the game only.
+- **Per-device settings** (gear button next to Kick and Block on the Devices tab): let one device upload, delete, rename, move or edit text, or limit it to the game only.
+- **Folders too**: rename, move to another folder, and delete (with everything inside) work on folders as well as files, within the same shared folder.
+- **Orb Arena v2**: aim and fire a gun (5 points a shot, 5 damage, 100 HP shield), one bot named after a deadly sin, Battle Royale and PvP modes, host-only blessings (speed, rapid fire, power, shield, invincible) that change the player's avatar, cat/dog/own-photo avatars with shape editor, laptop and phone controls.
+- **PDF reader**: page jump, zoom, fit width/page, rotate, search with highlights, thumbnails, text selection, sepia/dark pages, print, full screen, remembers your page.
 - **Game-only mode**: host just Orb Arena. No folders needed, nobody sees any file.
 - Keeps sharing while the phone is locked (foreground service, wake and Wi-Fi locks) with plain-language permission help.
 - **Full-screen** Orb Arena game: server-authoritative, minimap, leaderboard, touch joystick and boost.

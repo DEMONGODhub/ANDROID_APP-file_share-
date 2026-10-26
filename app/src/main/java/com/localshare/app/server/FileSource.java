@@ -32,10 +32,13 @@ public interface FileSource {
     /** Creates a new file in {@code dir}. Fails if the name is taken. */
     OutputStream create(List<String> dir, String name) throws IOException;
 
-    /** Deletes a file. Folders are never deleted. */
+    /** Deletes a file, or a folder together with everything inside it. The shared folder itself is never deleted. */
     boolean delete(List<String> path) throws IOException;
 
-    /** Renames a file inside its folder. Folders are never renamed. {@code newName} is a plain, already-validated name. */
+    /** Moves a file or folder into {@code toDir} (inside the same shared folder), keeping its name. False if not possible. */
+    boolean move(List<String> path, List<String> toDir) throws IOException;
+
+    /** Renames a file or folder inside its parent. {@code newName} is a plain, already-validated name. */
     boolean rename(List<String> path, String newName) throws IOException;
 
     /** Opens an existing file for writing, replacing its content. */

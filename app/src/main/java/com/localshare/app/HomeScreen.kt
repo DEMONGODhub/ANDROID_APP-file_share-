@@ -43,6 +43,17 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.localshare.app.ui.QrCode
 import com.localshare.app.ui.SectionCard
 
+/** Asks Android, with one tap, to stop limiting this app's battery use so sharing survives the screen turning off. */
+@android.annotation.SuppressLint("BatteryLife")
+private fun requestUnrestricted(ctx: android.content.Context) {
+    try {
+        ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")))
+    } catch (e: Exception) {
+        try { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+        catch (e2: Exception) { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }
+    }
+}
+
 private data class Perms(val notifications: Boolean, val unrestricted: Boolean)
 
 private fun readPerms(ctx: android.content.Context): Perms {
@@ -75,6 +86,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
     fun start() {
         if (Build.VERSION.SDK_INT >= 33 && !perms.notifications) notif.launch(Manifest.permission.POST_NOTIFICATIONS)
         ShareService.start(ctx)
+        if (Build.VERSION.SDK_INT >= 23 && !perms.unrestricted) requestUnrestricted(ctx)
     }
 
     LazyColumn(
@@ -226,9 +238,9 @@ private fun PermissionsCard(perms: Perms, askNotifications: (String) -> Unit) {
             perms.notifications, "Allow",
         ) { askNotifications(Manifest.permission.POST_NOTIFICATIONS) }
         if (Build.VERSION.SDK_INT >= 23) PermRow(
-            "Don't limit battery use", "Some phones stop apps in the background to save power. Choose “All apps”, find LocalShare, and pick “Don't optimize”.",
-            perms.unrestricted, "Open",
-        ) { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            "Don't limit battery use", "Without this, Android can stop sharing a few minutes after you leave the app or lock the phone, which restarts games and signs guests out. Tap Allow, then choose Allow in the box that opens.",
+            perms.unrestricted, "Allow",
+        ) { requestUnrestricted(ctx) }
         Text(
             "Xiaomi, Oppo, Vivo and Samsung phones also have an “Autostart” or “Battery” switch in the app's settings. Turn it on if sharing stops by itself.",
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,

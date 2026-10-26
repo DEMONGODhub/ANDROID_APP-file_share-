@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -69,7 +71,7 @@ fun DevicesScreen(st: UiState) {
 private fun permsNote(p: Int, gameOnlyMode: Boolean): String {
     if (gameOnlyMode) return "  ·  game only"
     if (p and 8 != 0) return "  ·  game only"
-    val on = listOfNotNull(if (p and 1 != 0) "delete" else null, if (p and 2 != 0) "rename" else null, if (p and 4 != 0) "edit" else null)
+    val on = listOfNotNull(if (p and 16 != 0) "upload" else null, if (p and 1 != 0) "delete" else null, if (p and 2 != 0) "rename" else null, if (p and 32 != 0) "move" else null, if (p and 4 != 0) "edit" else null)
     return if (on.isEmpty()) "" else "  ·  can " + on.joinToString(", ")
 }
 
@@ -95,10 +97,12 @@ private fun DevicePermsDialog(d: Device, st: UiState, onClose: () -> Unit) {
         onDismissRequest = onClose,
         title = { Text("Settings for ${d.name}") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 PermRow("Game only", "Can play the game but never see your files", gameOnly, enabled = !st.gameOnly && st.gameEnabled) { set(8, it) }
-                PermRow("Delete files", "Can delete files in your shared folders", p and 1 != 0 || (st.allowDelete && !gameOnly), enabled = !gameOnly) { set(1, it) }
-                PermRow("Rename files", "Can rename files", p and 2 != 0, enabled = !gameOnly) { set(2, it) }
+                PermRow("Upload files", "Can add files to your shared folders", p and 16 != 0 || (st.allowUploads && !gameOnly), enabled = !gameOnly) { set(16, it) }
+                PermRow("Delete files and folders", "Can delete files and folders", p and 1 != 0 || (st.allowDelete && !gameOnly), enabled = !gameOnly) { set(1, it) }
+                PermRow("Rename files and folders", "Can rename them", p and 2 != 0, enabled = !gameOnly) { set(2, it) }
+                PermRow("Move files and folders", "Can move them into other folders", p and 32 != 0, enabled = !gameOnly) { set(32, it) }
                 PermRow("Edit text files", "Can change .txt, .md, .json and other text files (up to 512 KB)", p and 4 != 0, enabled = !gameOnly) { set(4, it) }
                 Text(
                     if (st.gameOnly) "Game-only mode is on for everyone."
@@ -141,6 +145,9 @@ private fun describe(l: LogLine): String = when (l.kind) {
     "upload" -> "uploaded ${l.detail}"
     "delete" -> "deleted ${l.detail}"
     "rename" -> "renamed ${l.detail}"
+    "move" -> "moved ${l.detail}"
+    "power" -> "gave a super power: ${l.detail}"
+    "mode" -> "switched the game to ${l.detail}"
     "edit" -> "edited ${l.detail}"
     "perms" -> "had permissions changed by you"
     "kick" -> "was removed by you"

@@ -13,7 +13,7 @@
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
 button{font:inherit;color:inherit;cursor:pointer}
 a{color:var(--primary-text)}
-.hide{display:none!important}
+.hide,[hidden]{display:none!important}
 svg{display:block;flex:none}
 :focus-visible{outline:2px solid var(--primary);outline-offset:2px}
 .ib{width:44px;height:44px;border-radius:22px;border:0;background:none;display:inline-grid;place-items:center;color:var(--text);flex:none}
@@ -90,6 +90,8 @@ header{display:flex;align-items:center;gap:6px;padding:8px 10px;padding-top:max(
 .dlg{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:20px}
 .dlg>div{width:min(420px,100%);background:var(--surface);border:1px solid var(--outline);border-radius:24px;padding:22px;display:grid;gap:12px;max-height:88%;overflow:auto}
 .dlg input,.dlg textarea{width:100%;border:1px solid var(--outline);background:var(--bg);color:var(--text);border-radius:14px;padding:10px 12px;font:inherit}.dlg textarea{min-height:240px;font-family:ui-monospace,Consolas,monospace;font-size:14px;resize:vertical}.dlg .err{color:var(--danger);min-height:0}
+.mvc{display:flex;flex-wrap:wrap;gap:2px;color:var(--muted);font-size:13px}.mvc button{border:0;background:none;color:var(--primary-text);font-weight:600;padding:2px 4px}
+.mvl{max-height:240px;overflow:auto;border:1px solid var(--outline);border-radius:12px}.mvl p{padding:12px}.mvl button{display:flex;width:100%;gap:10px;align-items:center;padding:11px 12px;border:0;border-bottom:1px solid var(--outline);background:none;color:var(--text);text-align:left;font:inherit}.mvl button:hover{background:var(--surface2)}
 .dlg h3{margin:0;font-size:19px}.dlg p{margin:0;color:var(--muted);overflow-wrap:anywhere}
 .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 table.keys{border-collapse:collapse;width:100%}.keys td{padding:5px 0;vertical-align:top}.keys td:first-child{white-space:nowrap;padding-right:14px}
@@ -112,26 +114,68 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 .nav.l{left:8px}.nav.r{right:8px}
 #fab{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(16px,env(safe-area-inset-bottom));width:60px;height:60px;border-radius:20px;border:0;background:var(--primary);color:var(--onprimary);display:grid;place-items:center;box-shadow:var(--shadow);z-index:20;transition:transform .15s}
 #fab:active{transform:scale(.94)}
-#game{position:fixed;inset:0;z-index:50;background:#0f0c07;color:#F6EFE2;touch-action:none;user-select:none;-webkit-user-select:none}
-#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#game{position:fixed;inset:0;z-index:50;background:#0f0c07;color:#F6EFE2;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair}
 .hud{position:absolute;pointer-events:none;font-weight:700}
-#gs{left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));font-size:15px;background:rgba(0,0,0,.45);border-radius:14px;padding:8px 14px;line-height:1.25}
-#gs b{display:block;font-size:26px;color:#F7A600}
-#glb{right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));background:rgba(0,0,0,.45);border-radius:14px;padding:8px 12px;font-size:13px;min-width:150px}
-#glb div{display:flex;justify-content:space-between;gap:12px;white-space:nowrap}
+#gs{left:max(14px,env(safe-area-inset-left));top:max(14px,env(safe-area-inset-top));display:flex;gap:10px;align-items:center;font-size:13px;background:rgba(0,0,0,.5);border-radius:16px;padding:8px 14px 8px 8px;line-height:1.25;backdrop-filter:blur(4px)}
+#gs img{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.08)}
+#gs b{display:block;font-size:24px;color:#F7A600;line-height:1}
+#glb{right:max(14px,env(safe-area-inset-right));top:max(60px,calc(env(safe-area-inset-top) + 48px));background:rgba(0,0,0,.5);border-radius:14px;padding:8px 10px;font-size:13px;min-width:170px;backdrop-filter:blur(4px)}
+#glb div{display:flex;align-items:center;gap:7px;padding:2px 0;white-space:nowrap}#glb div span:nth-child(2){flex:1}
+#glb img{width:20px;height:20px;border-radius:50%}
 #glb .me{color:#F7A600}
-#mm{left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:110px;height:110px;border-radius:14px;background:rgba(0,0,0,.45)}
+#gmode{left:50%;transform:translateX(-50%);top:max(62px,calc(env(safe-area-inset-top) + 50px));background:rgba(0,0,0,.5);border-radius:12px;padding:5px 14px;font-size:13px;letter-spacing:.04em;white-space:nowrap}
+#gmode i{font-style:normal;color:#F7A600}
+#feed{left:max(14px,env(safe-area-inset-left));top:max(76px,calc(env(safe-area-inset-top) + 66px));display:grid;gap:4px;font-size:12.5px;max-width:46vw}
+#feed div{background:rgba(0,0,0,.45);border-radius:9px;padding:3px 9px;animation:fin .25s ease-out;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes fin{from{opacity:0;transform:translateX(-12px)}}
+#mm{left:max(14px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));width:120px;height:120px;border-radius:14px;background:rgba(0,0,0,.5)}
 #gctl{position:absolute;left:50%;transform:translateX(-50%);top:max(10px,env(safe-area-inset-top));display:flex;gap:6px}
-#gctl .ib{background:rgba(0,0,0,.45);color:#fff}
-#gb{position:absolute;right:max(24px,env(safe-area-inset-right));bottom:max(30px,env(safe-area-inset-bottom));width:84px;height:84px;border-radius:42px;border:2px solid #F7A600;background:rgba(247,166,0,.25);color:#fff;font-weight:800;display:none}
+#gctl .ib{background:rgba(0,0,0,.5);color:#fff;font-size:18px}
+#gbar{left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));display:grid;gap:7px;justify-items:center;width:min(340px,56vw)}
+#pw{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;min-height:0}
+#pw span{background:rgba(0,0,0,.55);border:1px solid rgba(247,166,0,.7);border-radius:12px;padding:2px 9px;font-size:12px}
+#hpw{position:relative;width:100%;height:20px;border-radius:12px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);overflow:hidden}
+#hpf{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(#7BE88A,#3FB655);transition:width .15s,background .2s}
+#hpt{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;text-shadow:0 1px 2px #000}
+#gfire,#gb{position:absolute;display:none;border-radius:50%;border:2px solid #F7A600;background:rgba(247,166,0,.25);color:#fff;font-weight:800;touch-action:none;place-items:center;line-height:1.1}
+#gfire{right:max(22px,env(safe-area-inset-right));bottom:max(26px,env(safe-area-inset-bottom));width:96px;height:96px;border-color:#FF7A45;background:rgba(255,122,69,.3)}
+#gfire small{display:block;font-weight:600;font-size:11px;opacity:.85}
+#gfire.on{background:#FF7A45;color:#2A1C00}#gfire.off{opacity:.45}
+#gb{right:max(130px,calc(env(safe-area-inset-right) + 118px));bottom:max(36px,env(safe-area-inset-bottom));width:70px;height:70px;font-size:12px}
 #gb.on{background:#F7A600;color:#2A1C00}
-@media (pointer:coarse){#gb{display:block}#mm{width:84px;height:84px}}
-#jy{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:60px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);pointer-events:none}
-#jy i{position:absolute;left:36px;top:36px;width:48px;height:48px;border-radius:24px;background:rgba(247,166,0,.85)}
-#dead{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.6)}
+@media (pointer:coarse){#gfire,#gb{display:grid}#mm{width:92px;height:92px}#glb{min-width:130px;font-size:12px;padding:6px 8px}#gbar{width:min(260px,34vw);bottom:max(10px,env(safe-area-inset-bottom))}#feed{display:none}}
+#jy,#jy2{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:60px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);pointer-events:none}
+#jy2{border-color:rgba(255,122,69,.6);background:rgba(255,122,69,.1)}
+#jy i,#jy2 i{position:absolute;left:36px;top:36px;width:48px;height:48px;border-radius:24px;background:rgba(247,166,0,.85)}#jy2 i{background:rgba(255,122,69,.9)}
+#gbn{left:50%;top:32%;transform:translate(-50%,-50%);text-align:center;font-size:clamp(28px,7vw,64px);font-weight:900;letter-spacing:.06em;text-shadow:0 4px 24px rgba(0,0,0,.8);color:#F7A600;white-space:nowrap}
+#gbn small{display:block;font-size:.3em;color:#F6EFE2;letter-spacing:.1em;font-weight:700}
+#gbn.pop{animation:pop .5s ease-out}
+@keyframes pop{from{transform:translate(-50%,-50%) scale(1.5);opacity:0}}
+#gconn{left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);padding:10px 18px;border-radius:14px}
+#dead{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+#dead.soft{background:none;pointer-events:none;place-items:end center;padding-bottom:84px}#dead.soft>div{background:rgba(0,0,0,.6);border-radius:16px;padding:10px 20px}#dead.soft h2{font-size:18px}
 #dead>div{text-align:center;display:grid;gap:12px;padding:20px}#dead h2{margin:0;font-size:28px}#dead p{margin:0;color:#cfc4ac}
-#gh{position:absolute;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(0,0,0,.45);border-radius:14px;padding:6px 14px;font-size:12.5px;color:#cfc4ac;white-space:nowrap;pointer-events:none}
-@media (pointer:coarse){#gh{display:none}}
+#gh{position:absolute;left:50%;bottom:max(70px,calc(env(safe-area-inset-bottom) + 56px));transform:translateX(-50%);background:rgba(0,0,0,.45);border-radius:14px;padding:6px 14px;font-size:12.5px;color:#cfc4ac;white-space:nowrap;pointer-events:none;transition:opacity 1s}
+@media (pointer:coarse){#gh{bottom:auto;top:max(110px,calc(env(safe-area-inset-top) + 100px))}}
+#hp{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(60px,calc(env(safe-area-inset-top) + 48px));width:min(300px,86vw);max-height:80%;overflow:auto;background:rgba(20,16,10,.94);border:1px solid #F7A600;border-radius:18px;padding:14px;display:grid;gap:10px;z-index:3;font-size:14px}
+#hp h4{margin:0;font-size:15px;color:#F7A600}
+#hp .seg{display:flex;gap:6px}#hp .seg button,#hp .pws button{flex:1;min-height:42px;border-radius:12px;border:1px solid #5a4a2a;background:#2B2419;color:#F6EFE2;font-weight:700}
+#hp .seg button.sel{background:#F7A600;color:#2A1C00;border-color:#F7A600}
+#hp select{width:100%;min-height:42px;border-radius:12px;border:1px solid #5a4a2a;background:#2B2419;color:#F6EFE2;padding:0 10px;font:inherit}
+#hp .pws{display:grid;grid-template-columns:1fr 1fr;gap:6px}#hp .pws button{display:grid;gap:0;padding:6px;font-size:13px}#hp .pws small{font-weight:500;color:#cfc4ac;font-size:11px}
+#hp .note{color:#cfc4ac;font-size:12px;min-height:16px}
+.avme{width:40px;height:40px;padding:0;border:0;background:none;display:grid;place-items:center;border-radius:50%}
+.avme img{width:36px;height:36px;display:block}
+#lav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+#lav button{width:42px;height:42px;padding:0;border-radius:50%;border:2px solid transparent;background:var(--surface2);display:grid;place-items:center;font-size:20px;color:var(--text);font-weight:700}
+#lav button.sel{border-color:var(--primary)}#lav img{width:100%;height:100%;border-radius:50%}
+.avgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}.avp{padding:0;border-radius:50%;border:2px solid transparent;background:none}.avp.sel{border-color:var(--primary)}.avp img{width:100%;display:block}
+.avbox{position:relative;width:220px;height:220px;margin:0 auto;border-radius:16px;background:repeating-conic-gradient(var(--surface2) 0 25%,var(--bg) 0 50%) 0 0/20px 20px;touch-action:none}
+.avbox canvas{width:220px;height:220px;display:block;cursor:grab}
+.avhint{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);pointer-events:none;text-align:center;padding:20px}
+.avrow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.avz{display:flex;align-items:center;gap:10px;color:var(--muted)}.avz input{flex:1;padding:0}
+.avshapes{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}.chip{min-height:34px;padding:0 12px;border-radius:17px;border:1px solid var(--outline);background:var(--surface);color:var(--text);font-weight:600}.chip.sel{background:var(--primary);color:var(--onprimary);border-color:transparent}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -141,6 +185,7 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 <div id="login" class="center hide"><form id="lf" class="panel" autocomplete="off">
   <div class="logo" id="logo1"></div><h1>LocalShare</h1><p id="lsub"></p>
   <div class="field"><input id="lname" placeholder="Your name" maxlength="24" required aria-label="Your name"></div>
+  <div id="lav" aria-label="Pick your picture"></div>
   <div class="field" id="pwrap"><input id="lpw" type="password" placeholder="Password" aria-label="Password"><button type="button" class="ib" id="eye" aria-label="Show password"></button></div>
   <div class="err" id="lerr" role="alert"></div>
   <button class="btn pri" id="lgo" style="justify-content:center">Join</button>
@@ -148,12 +193,13 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 
 <div id="blocked" class="center hide"><div class="panel"><div class="logo" id="logo2" style="background:var(--danger);color:#fff"></div><h1>Access blocked</h1><p>The person sharing this folder has blocked this device.</p></div></div>
 
-<div id="gonly" class="center hide"><div class="panel"><div class="logo" id="logo4"></div><h1>Game time</h1><p>This phone is hosting the game only.</p><button class="btn pri" id="gplay" style="justify-content:center">Play Orb Arena</button><button class="btn" id="glo" style="justify-content:center">Leave</button></div></div>
+<div id="gonly" class="center hide"><div class="panel"><div class="logo" id="logo4"></div><h1>Game time</h1><p>This phone is hosting the game only.</p><button class="btn pri" id="gplay" style="justify-content:center">Play Orb Arena</button><button class="btn" id="glo" style="justify-content:center">Leave</button><button class="btn avme" id="avb2" style="justify-content:center;gap:10px;width:auto"><img alt="" style="width:28px;height:28px"> Change my picture</button></div></div>
 
 <div id="app" class="hide">
   <header>
     <button id="brand" aria-label="Home, choose a folder"><i id="logo3"></i><span>LocalShare</span></button>
     <label id="sw"><span id="sico"></span><input id="q" placeholder="Search" aria-label="Search this folder" autocomplete="off"></label>
+    <button class="ib avme" id="avb" aria-label="Your picture. Tap to change it."><img alt=""></button>
     <button class="ib" id="help" aria-label="Help for this device"></button>
     <button class="ib" id="lo" aria-label="Leave"></button>
   </header>
@@ -181,13 +227,25 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 
 <div id="game" class="hide" role="application" aria-label="Orb Arena">
   <canvas id="cv"></canvas>
-  <div class="hud" id="gs"><span>Score</span><b id="gsc">0</b><span id="gn"></span></div>
+  <div class="hud" id="gs"><img id="gav" alt=""><div><span>Score</span><b id="gsc">0</b><span id="gn"></span></div></div>
+  <div class="hud" id="gmode"></div>
+  <div class="hud" id="feed"></div>
   <div class="hud" id="glb"></div>
-  <canvas class="hud" id="mm" width="220" height="220"></canvas>
-  <div id="gctl"><button class="ib" id="gfs" aria-label="Toggle full screen"></button><button class="ib" id="gx" aria-label="Leave game"></button></div>
+  <canvas class="hud" id="mm" width="240" height="240"></canvas>
+  <div class="hud" id="gbar"><div id="pw"></div><div id="hpw" aria-label="Shield"><i id="hpf"></i><span id="hpt"></span></div></div>
+  <div id="gctl"><button class="ib" id="ghost" hidden aria-label="Host controls">&#9819;</button><button class="ib" id="gsnd" aria-label="Sound"></button><button class="ib" id="gfs" aria-label="Toggle full screen"></button><button class="ib" id="gx" aria-label="Leave game"></button></div>
+  <button id="gfire" aria-label="Fire"><span><b>FIRE</b><small id="gcost">5 pts</small></span></button>
   <button id="gb" aria-label="Boost">BOOST</button>
-  <div id="jy" class="hide"><i></i></div>
-  <div id="gh">Move: mouse or WASD · Boost: Space or hold click · Esc to leave</div>
+  <div id="jy" class="hide"><i></i></div><div id="jy2" class="hide"><i></i></div>
+  <div class="hud hide" id="gbn" role="status"></div>
+  <div id="gh"></div>
+  <div class="hud hide" id="gconn">Reconnecting&hellip;</div>
+  <div id="hp" class="hide" role="dialog" aria-label="Host controls">
+    <h4>Game mode</h4><div class="seg"><button data-m="0">PvP</button><button data-m="1">Battle Royale</button></div>
+    <h4>Give a super power</h4><select id="hpt2" aria-label="Who gets the power"><option value="all">Everyone</option></select>
+    <div class="pws"><button data-p="speed">Speed Surge<small>fast for 15 s</small></button><button data-p="rapid">Rapid Fire<small>free shots, 15 s</small></button><button data-p="power">Power Shot<small>15 damage, 15 s</small></button><button data-p="shield">Iron Shield<small>150 HP, full heal</small></button><button data-p="invincible">Invincible<small>8 seconds</small></button></div>
+    <div class="note" id="hpn">Only you, the host, can give powers.</div>
+  </div>
   <div id="dead" class="hide"><div><h2>Game over</h2><p id="dmsg"></p><button class="btn pri" id="again" style="justify-self:center">Play again</button></div></div>
 </div>
 
@@ -201,6 +259,7 @@ const P={
  play:"M8 5v14l11-7z",
  more:"M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
  dl:"M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z",
+ move:"M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z",
  edit:"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z",
  trash:"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z",
  open:"M19 19H5V5h7V3H5a2 2 0 00-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z",
@@ -269,6 +328,7 @@ async function boot(){
 }
 function enter(){
   clearInterval(pinger);pinger=setInterval(ping,10000);
+  if(window.AV&&AV.sync)AV.sync();
   if(INFO.gameOnly){show("gonly");return}
   show("app");set("#vtog",view==="grid"?P.list:P.grid);
   go(hashPath(),true);
@@ -277,7 +337,7 @@ async function ping(){
   const r=await J("/api/ping");
   if(r.status===429)return showLogin("The room is full right now. Try again soon.");
   if(r.ok&&r.d.go!==!!INFO.gameOnly){location.reload();return}
-  if(r.ok&&(r.d.up!==INFO.canUpload||r.d.del!==INFO.canDelete||r.d.ren!==INFO.canRename||r.d.edt!==INFO.canEdit)){INFO.canUpload=r.d.up;INFO.canDelete=r.d.del;INFO.canRename=r.d.ren;INFO.canEdit=r.d.edt;toolbar()}
+  if(r.ok&&(r.d.up!==INFO.canUpload||r.d.del!==INFO.canDelete||r.d.ren!==INFO.canRename||r.d.edt!==INFO.canEdit||r.d.mov!==INFO.canMove)){INFO.canUpload=r.d.up;INFO.canDelete=r.d.del;INFO.canRename=r.d.ren;INFO.canEdit=r.d.edt;INFO.canMove=r.d.mov;toolbar()}
 }
 $("#lo").onclick=async()=>{await J("/api/logout",{method:"POST"});ME.name="";const r=await J("/api/info");INFO=r.d||{};showLogin()};
 
@@ -433,9 +493,11 @@ function openMenu(e,p,btn){
     m.appendChild(item(P.dl,"Download",null,"",fileUrl(p,1),{download:e.n}));
   }
   m.appendChild(item(P.link,"Copy link",()=>copy(location.origin+(e.d?"/"+hashOf(p):fileUrl(p)),"Link copied")));
-  if(!e.d&&INFO.canRename)m.appendChild(item(P.edit,"Rename",()=>renameDialog(e,p)));
+  const inside=p.split("/").filter(Boolean).length>=2; // the shared folders themselves can only be changed in the app
+  if(inside&&INFO.canRename)m.appendChild(item(P.edit,"Rename",()=>renameDialog(e,p)));
+  if(inside&&INFO.canMove)m.appendChild(item(P.move,"Move to…",()=>moveDialog(e,p)));
   if(!e.d&&INFO.canEdit&&e.k==="text"&&e.s<=524288)m.appendChild(item(P.file,"Edit text",()=>editDialog(e,p)));
-  if(!e.d&&INFO.canDelete)m.appendChild(item(P.trash,"Delete",()=>confirmDelete(e,p),"dng"));
+  if(inside&&INFO.canDelete)m.appendChild(item(P.trash,"Delete",()=>confirmDelete(e,p),"dng"));
   document.body.append(sc,m);
   if(innerWidth>640){
     const r=btn.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;
@@ -465,8 +527,8 @@ function dialog(html,build){
   const f=d.querySelector("[autofocus]")||d.querySelector("button");if(f)f.focus();return d;
 }
 function renameDialog(e,p){
-  dialog('<h3>Rename file</h3><input id="rn" maxlength="150" aria-label="New name" autofocus><div class="err" id="re" role="alert"></div><div class="acts"><button class="btn" id="rc">Cancel</button><button class="btn pri" id="rg">Rename</button></div>',(d,close)=>{
-    const i=d.querySelector("#rn");i.value=e.n;const dot=e.n.lastIndexOf(".");i.focus();i.setSelectionRange(0,dot>0?dot:e.n.length);
+  dialog('<h3>Rename '+(e.d?'folder':'file')+'</h3><input id="rn" maxlength="150" aria-label="New name" autofocus><div class="err" id="re" role="alert"></div><div class="acts"><button class="btn" id="rc">Cancel</button><button class="btn pri" id="rg">Rename</button></div>',(d,close)=>{
+    const i=d.querySelector("#rn");i.value=e.n;const dot=e.d?-1:e.n.lastIndexOf(".");i.focus();i.setSelectionRange(0,dot>0?dot:e.n.length);
     d.querySelector("#rc").onclick=close;
     const go1=async()=>{
       const v=i.value.trim();if(!v||v===e.n)return close();
@@ -493,12 +555,37 @@ async function editDialog(e,p){
     };
   });
 }
+function moveDialog(e,p){
+  const parts=p.split("/").filter(Boolean),mount=parts[0],parent=parts.slice(0,-1).join("/");
+  dialog('<h3>Move to…</h3><p id="mvn"></p><div id="mvc" class="mvc"></div><div id="mvl" class="mvl" role="listbox"></div><div class="err" id="mve" role="alert"></div><div class="acts"><button class="btn" id="mvx">Cancel</button><button class="btn pri" id="mvg">Move here</button></div>',(d,close)=>{
+    d.querySelector("#mvn").textContent=e.n;d.querySelector("#mvx").onclick=close;
+    let at=parent;const go2=d.querySelector("#mvg"),list=d.querySelector("#mvl"),crumbs=d.querySelector("#mvc"),err=d.querySelector("#mve");
+    const bad=dir=>dir===parent||(e.d&&(dir===p||dir.startsWith(p+"/")));
+    async function show(dir){
+      at=dir;err.textContent="";go2.disabled=bad(dir);
+      const segs=dir.split("/").filter(Boolean);crumbs.innerHTML="";
+      segs.forEach((sg,i)=>{const b=document.createElement("button");b.type="button";b.textContent=i?sg:sg+" (top)";b.onclick=()=>show(segs.slice(0,i+1).join("/"));crumbs.appendChild(b);if(i<segs.length-1)crumbs.append(" › ")});
+      list.innerHTML="<p>Loading…</p>";
+      const r=await J("/api/list?path="+enc(dir));if(at!==dir)return;
+      if(!r.ok){list.innerHTML="";err.textContent=r.d.error||"Could not open that folder";return}
+      list.innerHTML="";const dirs=r.d.entries.filter(x=>x.d&&!(e.d&&join(dir,x.n)===p)).sort((a,b)=>a.n.localeCompare(b.n));
+      if(!dirs.length)list.innerHTML="<p>No folders here. Use Move here to put it in this folder.</p>";
+      for(const x of dirs){const b=document.createElement("button");b.type="button";b.innerHTML=svg(P.folder,20)+"<span></span>";b.lastChild.textContent=x.n;b.onclick=()=>show(join(dir,x.n));list.appendChild(b)}
+    }
+    go2.onclick=async()=>{
+      go2.disabled=true;const r=await J("/api/move",{method:"POST",body:new URLSearchParams({path:p,to:at})});
+      if(r.ok){close();toast("Moved "+e.n);cache.clear();go(cur,true)}
+      else{go2.disabled=false;err.textContent=r.status===403?"The host does not allow moving":(r.d.error||"Could not move")}
+    };
+    show(parent);
+  });
+}
 function confirmDelete(e,p){
-  dialog('<h3>Delete this file?</h3><p id="dn"></p><p>It will be removed from the host\'s phone. This cannot be undone.</p><div class="acts"><button class="btn" id="dc">Cancel</button><button class="btn dng" id="dd" autofocus>Delete</button></div>',(d,close)=>{
+  dialog('<h3>Delete this '+(e.d?'folder':'file')+'?</h3><p id="dn"></p><p>'+(e.d?'The folder and everything inside it will be removed from the host\'s phone. This cannot be undone.':'It will be removed from the host\'s phone. This cannot be undone.')+'</p><div class="acts"><button class="btn" id="dc">Cancel</button><button class="btn dng" id="dd" autofocus>Delete</button></div>',(d,close)=>{
     d.querySelector("#dn").textContent=e.n;d.querySelector("#dc").onclick=close;
     d.querySelector("#dd").onclick=async()=>{
       const b=d.querySelector("#dd");b.disabled=true;
-      const r=await J("/api/delete",{method:"POST",body:new URLSearchParams({path:p})});
+      const r=await J("/api/delete",{method:"POST",body:new URLSearchParams(e.d?{path:p,recursive:"1"}:{path:p})});
       close();
       if(r.ok){
         const el=[...document.querySelectorAll(".card")].find(c=>c._e===e);
@@ -627,134 +714,9 @@ addEventListener("keydown",e=>{
   else if(k==="Delete"&&fc&&fc._e&&!fc._e.d&&INFO.canDelete){e.preventDefault();confirmDelete(fc._e,join(cur,fc._e.n))}
 });
 
-/* ---------- Orb Arena (full-screen multiplayer game) ---------- */
-const G={ws:null,on:false,me:null,W:3000,H:3000,r0:18,pl:new Map(),os:[],lb:[],mm:[],n:0,keys:{},mouse:null,joy:null,jid:-1,boost:false,btn:false,sent:"",sb:0,lastSend:0,cam:{x:1500,y:1500,z:900},raf:0,last:0,dead:false,sprites:{},hudT:0,pt:0};
-const cv=$("#cv"),ctx=cv.getContext("2d"),mmc=$("#mm"),mmx=mmc.getContext("2d");
-function gameOpen(){
-  if(G.on)return;G.on=true;$("#game").classList.remove("hide");$("#fab").classList.add("hide");
-  const el=$("#game");try{const r=(el.requestFullscreen||el.webkitRequestFullscreen);r&&r.call(el)}catch(e){}
-  G.dead=false;$("#dead").classList.add("hide");gameConnect();G.last=performance.now();cancelAnimationFrame(G.raf);G.raf=requestAnimationFrame(frame);
-}
-function gameClose(){
-  if(!G.on)return;G.on=false;$("#game").classList.add("hide");$("#fab").classList.toggle("hide",!INFO.gameEnabled||$("#app").classList.contains("hide"));
-  cancelAnimationFrame(G.raf);clearInterval(G.pt);G.keys={};G.joy=null;G.mouse=null;
-  if(G.ws){G.ws.onclose=null;G.ws.close();G.ws=null}G.pl.clear();G.os=[];G.me=null;
-  G.fs=false;try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}
-}
-$("#gplay").onclick=gameOpen;$("#glo").onclick=$("#lo").onclick;$("#fab").onclick=gameOpen;$("#gx").onclick=gameClose;
-$("#gfs").onclick=()=>{try{if(document.fullscreenElement)document.exitFullscreen();else $("#game").requestFullscreen()}catch(e){}};
-$("#again").onclick=()=>{if(G.ws&&G.ws.readyState===1)G.ws.send("r");G.dead=false;$("#dead").classList.add("hide")};
-function gameConnect(){
-  if(G.ws||!G.on)return;
-  const ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");G.ws=ws;
-  ws.onmessage=ev=>{
-    let m;try{m=JSON.parse(ev.data)}catch(e){return}
-    if(m.t==="hello"){G.me=m.id;G.W=m.w;G.H=m.h;G.r0=m.r0||18}
-    else if(m.t==="s"){
-      const seen=new Set();
-      for(const q of m.p){seen.add(q[0]);let o=G.pl.get(q[0]);
-        if(!o){o={id:q[0],x:q[2],y:q[3],r:q[4],dx:0,dy:0};G.pl.set(q[0],o)}
-        o.name=q[1];o.tx=q[2];o.ty=q[3];o.tr=q[4];o.hue=q[5]}
-      for(const id of [...G.pl.keys()])if(!seen.has(id))G.pl.delete(id);
-      G.os=m.o;G.lb=m.lb;G.mm=m.mm;G.n=m.n;
-    }else if(m.t==="dead"){G.dead=true;$("#dmsg").textContent="You were eaten by "+m.by+". Final score: "+m.score+".";$("#dead").classList.remove("hide");$("#again").focus()}
-  };
-  ws.onopen=()=>{clearInterval(G.pt);G.pt=setInterval(()=>{if(ws.readyState===1)ws.send("p")},15000);G.sent=""};
-  ws.onclose=()=>{G.ws=null;clearInterval(G.pt);if(G.on)setTimeout(gameConnect,1500)};
-}
-document.addEventListener("fullscreenchange",()=>{if(!G.on)return;if(document.fullscreenElement)G.fs=true;else if(G.fs){G.fs=false;gameClose();return}resizeCv(true)});
-document.addEventListener("visibilitychange",()=>{if(!G.on)return;if(document.hidden)cancelAnimationFrame(G.raf);else{G.last=performance.now();G.raf=requestAnimationFrame(frame)}});
-addEventListener("keydown",e=>{
-  if(!G.on)return;const k=e.key.length===1?e.key.toLowerCase():e.key;
-  if(k==="Escape"){gameClose();return}
-  if("wasd".includes(k)||k.startsWith("Arrow")||k===" "||k==="Shift"){G.keys[k]=true;e.preventDefault()}
-},true);
-addEventListener("keyup",e=>{if(!G.on)return;delete G.keys[e.key.length===1?e.key.toLowerCase():e.key]});
-cv.addEventListener("contextmenu",e=>e.preventDefault());
-cv.addEventListener("pointerdown",e=>{
-  cv.setPointerCapture(e.pointerId);
-  if(e.pointerType==="mouse"){G.mouse={x:e.clientX,y:e.clientY};G.btn=true}
-  else if(G.jid<0){G.jid=e.pointerId;G.joy={ox:e.clientX,oy:e.clientY,x:0,y:0};const j=$("#jy");j.style.left=e.clientX+"px";j.style.top=e.clientY+"px";j.classList.remove("hide");j.firstChild.style.transform="none"}
-});
-cv.addEventListener("pointermove",e=>{
-  if(e.pointerType==="mouse")G.mouse={x:e.clientX,y:e.clientY};
-  else if(e.pointerId===G.jid&&G.joy){const dx=e.clientX-G.joy.ox,dy=e.clientY-G.joy.oy,m=Math.hypot(dx,dy),f=Math.min(m/50,1);G.joy.x=m?dx/m*f:0;G.joy.y=m?dy/m*f:0;$("#jy").firstChild.style.transform=`translate(${G.joy.x*36}px,${G.joy.y*36}px)`}
-});
-const pend=e=>{if(e.pointerType==="mouse")G.btn=false;else if(e.pointerId===G.jid){G.jid=-1;G.joy=null;$("#jy").classList.add("hide")}};
-cv.addEventListener("pointerup",pend);cv.addEventListener("pointercancel",pend);
-const gb=$("#gb");
-gb.addEventListener("pointerdown",e=>{e.stopPropagation();gb.setPointerCapture(e.pointerId);G.boostBtn=true;gb.classList.add("on")});
-const gbu=()=>{G.boostBtn=false;gb.classList.remove("on")};gb.addEventListener("pointerup",gbu);gb.addEventListener("pointercancel",gbu);
-function inputVec(){
-  const k=G.keys;let x=0,y=0;
-  if(k.ArrowLeft||k.a)x--;if(k.ArrowRight||k.d)x++;if(k.ArrowUp||k.w)y--;if(k.ArrowDown||k.s)y++;
-  if(x||y){const m=Math.hypot(x,y);return[x/m,y/m]}
-  if(G.joy)return[G.joy.x,G.joy.y];
-  if(G.mouse){const dx=G.mouse.x-innerWidth/2,dy=G.mouse.y-innerHeight/2,m=Math.hypot(dx,dy),f=Math.min(m/(Math.min(innerWidth,innerHeight)*.12),1);return m>4?[dx/m*f,dy/m*f]:[0,0]}
-  return[0,0];
-}
-function sendInput(now){
-  if(!G.ws||G.ws.readyState!==1)return;
-  const[x,y]=inputVec(),s=x.toFixed(2)+" "+y.toFixed(2);
-  if(s!==G.sent&&now-G.lastSend>=33){G.ws.send("m "+s);G.sent=s;G.lastSend=now}
-  const b=!!(G.keys[" "]||G.keys.Shift||G.btn||G.boostBtn)?1:0;
-  if(b!==G.sb){G.ws.send("b "+b);G.sb=b}
-}
-let cw=0,ch=0,dpr=1;
-function resizeCv(force){
-  const d=Math.min(devicePixelRatio||1,2),w=Math.round(innerWidth*d),h=Math.round(innerHeight*d);
-  if(force||cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;dpr=d}cw=cv.width;ch=cv.height;
-}
-function sprite(h){
-  const b=Math.round(h/12)%30;let s=G.sprites[b];if(s)return s;
-  s=document.createElement("canvas");s.width=s.height=32;const c=s.getContext("2d"),g=c.createRadialGradient(16,16,1,16,16,15);
-  g.addColorStop(0,`hsl(${b*12} 95% 78%)`);g.addColorStop(.6,`hsl(${b*12} 90% 58%)`);g.addColorStop(1,`hsla(${b*12} 90% 55% / 0)`);
-  c.fillStyle=g;c.beginPath();c.arc(16,16,15,0,7);c.fill();return G.sprites[b]=s;
-}
-function frame(now){
-  G.raf=requestAnimationFrame(frame);
-  const dt=Math.min(.05,(now-G.last)/1000||.016);G.last=now;
-  resizeCv();sendInput(now);
-  const a=1-Math.exp(-dt*16);
-  for(const o of G.pl.values()){o.dx=o.tx-o.x;o.dy=o.ty-o.y;o.x+=o.dx*a;o.y+=o.dy*a;o.r+=(o.tr-o.r)*a}
-  const me=G.pl.get(G.me);
-  if(me){const c=1-Math.exp(-dt*10);G.cam.x+=(me.x-G.cam.x)*c;G.cam.y+=(me.y-G.cam.y)*c}
-  const r=me?me.r:G.r0,view=Math.min(1500,520+r*6),asp=cw/ch;
-  const targetH=Math.min(700+4*r,1.9*view/Math.max(1,asp),1.9*view);
-  G.cam.z+=(targetH-G.cam.z)*(1-Math.exp(-dt*4));
-  const k=ch/G.cam.z;
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#0f0c07";ctx.fillRect(0,0,cw,ch);
-  ctx.setTransform(k,0,0,k,cw/2-G.cam.x*k,ch/2-G.cam.y*k);
-  ctx.fillStyle="#17140F";ctx.fillRect(0,0,G.W,G.H);
-  const hw=cw/k/2,hh=ch/k/2,x0=Math.max(0,G.cam.x-hw),x1=Math.min(G.W,G.cam.x+hw),y0=Math.max(0,G.cam.y-hh),y1=Math.min(G.H,G.cam.y+hh);
-  ctx.strokeStyle="#2B2419";ctx.lineWidth=1.5/k;ctx.beginPath();
-  for(let g=Math.ceil(x0/100)*100;g<=x1;g+=100){ctx.moveTo(g,y0);ctx.lineTo(g,y1)}
-  for(let g=Math.ceil(y0/100)*100;g<=y1;g+=100){ctx.moveTo(x0,g);ctx.lineTo(x1,g)}
-  ctx.stroke();ctx.lineWidth=6/k;ctx.strokeStyle="#F7A600";ctx.strokeRect(0,0,G.W,G.H);
-  for(const o of G.os){ctx.drawImage(sprite(o[2]),o[0]-8,o[1]-8,16,16)}
-  const ps=[...G.pl.values()].sort((p,q)=>p.r-q.r);
-  for(const p of ps){
-    const hue=p.hue,g=ctx.createRadialGradient(p.x-p.r*.3,p.y-p.r*.3,p.r*.1,p.x,p.y,p.r);
-    g.addColorStop(0,`hsl(${hue} 85% 72%)`);g.addColorStop(1,`hsl(${hue} 75% 50%)`);
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
-    ctx.lineWidth=Math.max(2,p.r*.07);ctx.strokeStyle=p.id===G.me?"#fff":`hsl(${hue} 70% 36%)`;ctx.stroke();
-    const m=Math.hypot(p.dx,p.dy)||1,ex=p.dx/m*p.r*.07,ey=p.dy/m*p.r*.07;
-    for(const s of[-1,1]){ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(p.x+s*p.r*.3+ex,p.y-p.r*.18+ey,p.r*.2,0,7);ctx.fill();ctx.fillStyle="#1a1206";ctx.beginPath();ctx.arc(p.x+s*p.r*.3+ex*3,p.y-p.r*.18+ey*3,p.r*.09,0,7);ctx.fill()}
-    const fs=Math.max(p.r*.42,12/k);ctx.font=`700 ${fs}px system-ui,sans-serif`;ctx.textAlign="center";ctx.textBaseline="middle";
-    ctx.lineWidth=fs*.14;ctx.strokeStyle="rgba(0,0,0,.55)";ctx.strokeText(p.name,p.x,p.y+p.r*.45);ctx.fillStyle="#fff";ctx.fillText(p.name,p.x,p.y+p.r*.45);
-  }
-  if(now-G.hudT>150){G.hudT=now;hud(me)}
-}
-function hud(me){
-  const sc=me?Math.max(0,Math.floor((me.r*me.r-G.r0*G.r0)/10)):0;
-  $("#gsc").textContent=sc;$("#gn").textContent=G.n+(G.n===1?" player":" players");
-  const lb=$("#glb");lb.innerHTML="";
-  G.lb.forEach((e,i)=>{const d=document.createElement("div");if(e[0]===G.me)d.className="me";const a=document.createElement("span"),b=document.createElement("span");a.textContent=(i+1)+". "+e[1];b.textContent=e[2];d.append(a,b);lb.appendChild(d)});
-  const s=mmc.width;mmx.clearRect(0,0,s,s);mmx.strokeStyle="rgba(247,166,0,.8)";mmx.lineWidth=2;mmx.strokeRect(1,1,s-2,s-2);
-  for(const m of G.mm){const mine=m[0]===G.me;mmx.fillStyle=mine?"#F7A600":"rgba(255,255,255,.7)";mmx.beginPath();mmx.arc(m[1]/G.W*s,m[2]/G.H*s,mine?6:Math.max(2.5,m[3]/G.W*s*1.4),0,7);mmx.fill()}
-}
-
-boot();
 </script>
+<script src="/static/avatar.js?v=4"></script>
+<script src="/static/arena.js?v=4"></script>
+<script>boot();</script>
 </body>
 </html>

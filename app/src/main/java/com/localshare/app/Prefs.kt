@@ -56,6 +56,11 @@ class Prefs(ctx: Context) {
         sp.edit().putString("perms", m.entries.joinToString("\n") { "${it.key}\t${it.value}" }).apply()
     }
 
+    /** 0 = PvP, 1 = Battle Royale. */
+    var gameMode: Int
+        get() = sp.getInt("game_mode", 0)
+        set(v) = sp.edit().putInt("game_mode", v).apply()
+
     var gameEnabled: Boolean
         get() = sp.getBoolean("game", true)
         set(v) = sp.edit().putBoolean("game", v).apply()
