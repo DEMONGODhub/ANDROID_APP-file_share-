@@ -1,6 +1,6 @@
 "use strict";
 /* Orb Arena client: every sphere carries a gun that points where you aim (like its eyes). Needs the page helpers $, J, store, toast, ME, INFO, DEV, AV. */
-const G={ws:null,on:false,me:null,W:3000,H:3000,r0:18,cost:5,mode:0,pl:new Map(),os:[],bl:[],lb:[],mm:[],n:0,g:{m:0,ph:0,t:0,zr:1450,al:0},my:[100,100,0,0,0,0,0,0,0],
+const G={ws:null,on:false,me:null,W:3000,H:3000,r0:18,cost:1,mode:0,tp:new Map(),sp:{x:1500,y:1500,z:2200,free:false,follow:null},spec(){return !!(this.my&&this.my[9])},pl:new Map(),os:[],bl:[],lb:[],mm:[],n:0,g:{m:0,ph:0,t:0,zr:1450,al:0},my:[100,100,0,0,0,0,0,0,0],
  keys:{},mouse:{x:innerWidth/2,y:innerHeight/2},lbtn:false,rbtn:false,joy:null,jid:-1,ajoy:null,aid:-1,aim:0,aimSent:9,fireBtn:false,boostBtn:false,tapUntil:0,sf:0,sb:0,sent:"",lastSend:0,lastAim:0,
  cam:{x:1500,y:1500,z:900},k:1,raf:0,last:0,dead:false,fx:[],rings:[],floats:[],feed:[],trails:new Map(),seen:new Set(),shake:0,flash:0,hudT:0,pt:0,wl:null,
  touch:matchMedia("(pointer:coarse)").matches,hostOpen:false,rosterT:0,bannerT:0,lastCount:-1,fs:false,fireWas:false};
@@ -30,7 +30,7 @@ function gameOpen(){
   G.dead=false;$("#dead").classList.add("hide");$("#gconn").classList.add("hide");$("#hp").classList.add("hide");G.hostOpen=false;
   $("#ghost").hidden=!ME.host;paintSnd();
   $("#gav").src=AV.mine==="c"?AV.img:avSrc(AV.mine);
-  $("#gh").textContent=G.touch?"Left thumb moves · right thumb aims and fires · FIRE shoots where you aim":"Move: WASD · Aim: mouse · Fire: click or Space · Boost: Shift · Esc leaves";
+  $("#gh").textContent=G.touch?"One stick: the gun points the way you move · hold FIRE to shoot (1 pumpkin a shot) · BOOST dashes":"Move: WASD · Aim: mouse · Fire: click or Space (1 pumpkin a shot) · Boost: Shift · Esc leaves";
   $("#gh").style.opacity=1;setTimeout(()=>{$("#gh").style.opacity=0},7000);
   try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(l=>{G.wl=l}).catch(()=>{})}catch(e){}
   gameConnect();G.last=performance.now();cancelAnimationFrame(G.raf);G.raf=requestAnimationFrame(frame);
@@ -86,7 +86,7 @@ function feed(text,color){
   while($("#feed").children.length>5)$("#feed").lastChild.remove();setTimeout(()=>d.remove(),6000);
 }
 function onMsg(m){
-  if(m.t==="hello"){G.me=m.id;G.W=m.w;G.H=m.h;G.r0=m.r0||18;G.cost=m.cost||5;G.mode=m.mode||0;$("#gcost").textContent=G.cost+" pts";return}
+  if(m.t==="hello"){G.me=m.id;G.W=m.w;G.H=m.h;G.r0=m.r0||18;G.cost=m.cost||1;G.mode=m.mode||0;$("#gcost").textContent="1 pumpkin";return}
   if(m.t==="dead"){
     G.dead=true;G.deadAt=performance.now();const box=$("#dead");box.classList.remove("hide");box.classList.toggle("soft",G.mode===1);
     $("#dmsg").textContent="Eliminated by "+m.by+". Score "+m.score+(m.kills?" · "+m.kills+" kills":"")+".";
@@ -142,24 +142,27 @@ addEventListener("keydown",e=>{
   if(k==="h"&&ME.host)toggleHost();
 },true);
 addEventListener("keyup",e=>{if(!G.on)return;delete G.keys[e.key.length===1?e.key.toLowerCase():e.key]});
+cv.addEventListener("wheel",e=>{if(!G.spec())return;e.preventDefault();G.sp.z=Math.max(500,Math.min(4800,G.sp.z*(e.deltaY>0?1.12:1/1.12)))},{passive:false});
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId);
-  if(e.pointerType==="mouse"){G.mouse={x:e.clientX,y:e.clientY};if(e.button===2)G.rbtn=true;else G.lbtn=true;return}
-  if(e.clientX<innerWidth*.5){
-    if(G.jid<0){G.jid=e.pointerId;G.joy={ox:e.clientX,oy:e.clientY,x:0,y:0};const j=$("#jy");j.style.left=e.clientX+"px";j.style.top=e.clientY+"px";j.classList.remove("hide");j.firstChild.style.transform="none"}
-  }else if(G.aid<0){
-    G.aid=e.pointerId;G.ajoy={ox:e.clientX,oy:e.clientY,x:0,y:0,f:false};G.tapUntil=performance.now()+140;
-    const j=$("#jy2");j.style.left=e.clientX+"px";j.style.top=e.clientY+"px";j.classList.remove("hide");j.firstChild.style.transform="none";
-  }
+  if(e.pointerType==="mouse"){G.mouse={x:e.clientX,y:e.clientY};if(e.button===2)G.rbtn=true;else G.lbtn=true;if(G.spec())G.mdrag={x:e.clientX,y:e.clientY};return}
+  if(G.spec()){G.pan={id:e.pointerId,x:e.clientX,y:e.clientY};G.tp.set(e.pointerId,{x:e.clientX,y:e.clientY});return}
+  if(G.jid<0){G.jid=e.pointerId;G.joy={ox:e.clientX,oy:e.clientY,x:0,y:0};const j=$("#jy");j.style.left=e.clientX+"px";j.style.top=e.clientY+"px";j.classList.remove("hide");j.firstChild.style.transform="none"}
 });
 cv.addEventListener("pointermove",e=>{
-  if(e.pointerType==="mouse"){G.mouse={x:e.clientX,y:e.clientY};return}
+  if(e.pointerType==="mouse"){G.mouse={x:e.clientX,y:e.clientY};if(G.spec()&&G.lbtn&&G.mdrag){G.sp.free=true;G.sp.follow=null;G.sp.x-=(e.clientX-G.mdrag.x)*dpr/G.k;G.sp.y-=(e.clientY-G.mdrag.y)*dpr/G.k;G.mdrag={x:e.clientX,y:e.clientY}}return}
+  if(G.tp.has(e.pointerId)){ // spectator: drag to pan, two fingers to zoom
+    const o=G.tp.get(e.pointerId),n={x:e.clientX,y:e.clientY};
+    if(G.tp.size>=2){const ps=[...G.tp.keys()],a=G.tp.get(ps[0]),b=G.tp.get(ps[1]),d0=Math.hypot(a.x-b.x,a.y-b.y);G.tp.set(e.pointerId,n);const a2=G.tp.get(ps[0]),b2=G.tp.get(ps[1]),d1=Math.hypot(a2.x-b2.x,a2.y-b2.y);if(d0>10&&d1>10)G.sp.z=Math.max(500,Math.min(4800,G.sp.z*d0/d1))}
+    else{G.tp.set(e.pointerId,n);G.sp.free=true;G.sp.follow=null;G.sp.x-=(n.x-o.x)*dpr/G.k;G.sp.y-=(n.y-o.y)*dpr/G.k}
+    return}
   const stick=(s,id,el)=>{const dx=e.clientX-s.ox,dy=e.clientY-s.oy,m=Math.hypot(dx,dy),f=Math.min(m/50,1);s.x=m?dx/m*f:0;s.y=m?dy/m*f:0;el.firstChild.style.transform=`translate(${s.x*36}px,${s.y*36}px)`;return m};
   if(e.pointerId===G.jid&&G.joy)stick(G.joy,G.jid,$("#jy"));
   else if(e.pointerId===G.aid&&G.ajoy){const m=stick(G.ajoy,G.aid,$("#jy2"));if(m>8)G.aim=Math.atan2(G.ajoy.y,G.ajoy.x);G.ajoy.f=m>22}
 });
 const pend=e=>{
+  G.tp.delete(e.pointerId);G.mdrag=null;
   if(e.pointerType==="mouse"){if(e.button===2)G.rbtn=false;else G.lbtn=false}
   else if(e.pointerId===G.jid){G.jid=-1;G.joy=null;$("#jy").classList.add("hide")}
   else if(e.pointerId===G.aid){G.aid=-1;G.ajoy=null;$("#jy2").classList.add("hide")}
@@ -179,7 +182,7 @@ function sendInput(now){
   if(!G.ws||G.ws.readyState!==1)return;
   const[x,y]=inputVec(),s=x.toFixed(2)+" "+y.toFixed(2);
   if(s!==G.sent&&now-G.lastSend>=33){G.ws.send("m "+s);G.sent=s;G.lastSend=now}
-  if(!G.joy&&G.aid<0&&G.touch&&(x||y))G.aim=Math.atan2(y,x); // a phone with no aim thumb: shoot the way you run
+  if(G.touch&&Math.hypot(x,y)>.2)G.aim=Math.atan2(y,x); // one stick: the gun points the way you move
   if(Math.abs(angDiff(G.aimSent,G.aim))>.03&&now-G.lastAim>=45){G.ws.send("a "+G.aim.toFixed(3));G.aimSent=G.aim;G.lastAim=now}
   const b=(G.keys.Shift||G.rbtn||G.boostBtn)?1:0;if(b!==G.sb){G.ws.send("b "+b);G.sb=b}
   const f=(G.lbtn||G.keys[" "]||G.fireBtn||(G.ajoy&&G.ajoy.f)||now<G.tapUntil)?1:0;
@@ -195,8 +198,8 @@ $("#ghost").onclick=()=>toggleHost();
 async function loadRoster(){
   if(!G.hostOpen)return;const r=await J("/api/players");
   if(r.ok){const sel=$("#hpt2"),cur=sel.value;sel.innerHTML='<option value="all">Everyone</option>';
-    for(const p of r.d){const o=document.createElement("option");o.value=p.id;o.textContent=p.name+(p.dead?" (out)":"");sel.appendChild(o)}
-    if([...sel.options].some(o=>o.value===cur))sel.value=cur}
+    G.rost.clear();for(const p of r.d){G.rost.set(p.id,p);const o=document.createElement("option");o.value=p.id;o.textContent=p.name+(p.spec?" (spectator)":p.dead?" (out)":"");sel.appendChild(o)}
+    if([...sel.options].some(o=>o.value===cur))sel.value=cur;paintSpec()}
   clearTimeout(G.rosterT);G.rosterT=setTimeout(loadRoster,2500);
 }
 document.querySelectorAll("#hp .seg button").forEach(b=>b.onclick=async()=>{
@@ -204,7 +207,16 @@ document.querySelectorAll("#hp .seg button").forEach(b=>b.onclick=async()=>{
   $("#hpn").textContent=r.ok?(b.dataset.m==="1"?"Battle Royale: rounds start by themselves":"PvP: fight and respawn"):(r.d.error||"Could not change the mode");
   if(r.ok)document.querySelectorAll("#hp .seg button").forEach(x=>x.classList.toggle("sel",x===b));
 });
-document.querySelectorAll("#hp .pws button").forEach(b=>b.onclick=async()=>{
+G.rost=new Map();
+async function setSpec(id,on){
+  const r=await J("/api/spectate",{method:"POST",body:new URLSearchParams({id,on:on?"1":"0"})});
+  $("#hpn").textContent=r.ok?(on?"Now a spectator":"Back in the game"):(r.d.error||"Could not change that");return r.ok;
+}
+$("#hpob").onclick=()=>setSpec(G.me,!G.spec());
+$("#hpsp").onclick=async()=>{const id=$("#hpt2").value;if(id==="all"){$("#hpn").textContent="Pick one player first";return}const p=G.rost.get(id);await setSpec(id,!(p&&p.spec));loadRoster()};
+$("#hpt2").onchange=()=>paintSpec();
+function paintSpec(){const id=$("#hpt2").value,p=G.rost.get(id);$("#hpsp").firstChild.textContent=p&&p.spec?"Let selected play":"Make selected a spectator";$("#hpsp").disabled=id==="all";$("#hpob").firstChild.textContent=G.spec()?"Stop observing":"Observe the match"}
+document.querySelectorAll("#hp .pws button[data-p]").forEach(b=>b.onclick=async()=>{
   const r=await J("/api/power",{method:"POST",body:new URLSearchParams({id:$("#hpt2").value,power:b.dataset.p})});
   $("#hpn").textContent=r.ok?"Given to "+r.d.n+(r.d.n===1?" player":" players"):(r.status===400?"Nobody to give it to yet":(r.d.error||"Could not give it"));
 });
@@ -252,9 +264,11 @@ function drawPlayer(p,k,t,now){
   drawGun(p,0,aim,p.rec,hue,bits);
   ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r,0,TAU);ctx.fill();ctx.shadowColor="transparent";
   ctx.lineWidth=Math.max(2,r*.07);ctx.strokeStyle=me?"#fff":`hsl(${hue} 70% 34%)`;ctx.stroke();
+  const hi=/^b[1-5]$/.test(p.av||"")?avImage(p.av,p.id):null;
+  if(hi){ctx.save();ctx.beginPath();ctx.arc(p.x,p.y,r*.94,0,TAU);ctx.clip();ctx.imageSmoothingEnabled=false;ctx.drawImage(hi,p.x-r,p.y-r,r*2,r*2);ctx.restore()}
   // eyes look where the gun points
   const ca=Math.cos(aim),sa=Math.sin(aim),ex=ca*r*.22,ey=sa*r*.22;
-  for(const s of[-1,1]){const cx=p.x+ex+(-sa)*s*r*.27,cy=p.y+ey+ca*s*r*.27;
+  if(!hi)for(const s of[-1,1]){const cx=p.x+ex+(-sa)*s*r*.27,cy=p.y+ey+ca*s*r*.27;
     ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(cx,cy,r*.2,0,TAU);ctx.fill();
     ctx.fillStyle="#1a1206";ctx.beginPath();ctx.arc(cx+ca*r*.09,cy+sa*r*.09,r*.1,0,TAU);ctx.fill()}
   // shield rings from powers and spawn protection
@@ -293,13 +307,15 @@ function frame(now){
   for(const o of G.pl.values()){o.dx=o.tx-o.x;o.dy=o.ty-o.y;o.x+=o.dx*a;o.y+=o.dy*a;o.r+=(o.tr-o.r)*a;o.aim+=angDiff(o.aim,o.taim??o.aim)*a;o.rec=Math.max(0,o.rec-dt*5);o.shown=(o.shown??o.hp)+((o.hp??0)-(o.shown??o.hp))*a}
   const me=G.pl.get(G.me);
   if(me&&G.my){me.hpMax=G.my[1]}
-  const tgt=me?{x:me.x,y:me.y}:G.camT||G.cam;
+  const sp=G.spec();
+  let tgt=me?{x:me.x,y:me.y}:G.camT||G.cam;
+  if(sp){const f=G.sp.follow&&G.pl.get(G.sp.follow);if(f){G.sp.free=false;tgt={x:f.x,y:f.y}}else if(G.sp.free)tgt={x:G.sp.x,y:G.sp.y};else{tgt=G.camT||G.cam}G.sp.x=tgt.x;G.sp.y=tgt.y}
   const c=1-Math.exp(-dt*10);G.cam.x+=(tgt.x-G.cam.x)*c;G.cam.y+=(tgt.y-G.cam.y)*c;
   const r=me?me.r:G.r0,view=Math.min(1500,520+r*6),asp=cw/ch;
-  const targetH=Math.min(700+4*r,1.9*view/Math.max(1,asp),1.9*view);G.cam.z+=(targetH-G.cam.z)*(1-Math.exp(-dt*4));
+  const targetH=Math.min(700+4*r,1.9*view/Math.max(1,asp),1.9*view);G.cam.z+=((sp?G.sp.z:targetH)-G.cam.z)*(1-Math.exp(-dt*(sp?10:4)));
   const k=ch/G.cam.z;G.k=k;
   // aim: the mouse cursor on a laptop, the right thumb on a phone
-  if(me&&G.aid<0&&(!G.touch||G.mouse.moved)){const sx=((me.x-G.cam.x)*k+cw/2)/dpr,sy=((me.y-G.cam.y)*k+ch/2)/dpr;G.aim=Math.atan2(G.mouse.y-sy,G.mouse.x-sx)}
+  if(me&&!sp&&G.aid<0&&(!G.touch||G.mouse.moved)){const sx=((me.x-G.cam.x)*k+cw/2)/dpr,sy=((me.y-G.cam.y)*k+ch/2)/dpr;G.aim=Math.atan2(G.mouse.y-sy,G.mouse.x-sx)}
   let shx=0,shy=0;if(G.shake>.2){shx=(rnd()-.5)*G.shake;shy=(rnd()-.5)*G.shake;G.shake*=Math.pow(.02,dt)}
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#070503";ctx.fillRect(0,0,cw,ch);
   ctx.setTransform(k,0,0,k,cw/2-G.cam.x*k+shx*dpr,ch/2-G.cam.y*k+shy*dpr);
@@ -331,7 +347,8 @@ function frame(now){
   if(now-G.hudT>140){G.hudT=now;hud(me)}
 }
 function hud(me){
-  const my=G.my,g=G.g;
+  const my=G.my,g=G.g,sp=G.spec();
+  $("#game").classList.toggle("spectating",sp);if(sp&&G.dead){G.dead=false;$("#dead").classList.add("hide")}
   $("#gsc").textContent=my[2];$("#gn").textContent=(g.m===1?g.al+" alive":G.n+(G.n===1?" player":" players"))+" · "+my[3]+" kills";
   const pct=my[1]?Math.max(0,Math.min(100,my[0]/my[1]*100)):0,f=$("#hpf");f.style.width=pct+"%";f.style.background=pct>60?"linear-gradient(#7BE88A,#3FB655)":pct>30?"linear-gradient(#F7C948,#E09B14)":"linear-gradient(#FF7A6A,#D8402F)";
   $("#hpt").textContent=Math.max(0,my[0])+" / "+my[1]+(my[1]>100?"  +SHIELD":"");
@@ -351,3 +368,6 @@ function hud(me){
 cv.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")G.mouse.moved=true},true);
 addEventListener("resize",()=>{if(G.on)resizeCv(true)});
 })();
+
+$("#szi").onclick=()=>{G.sp.z=Math.max(500,G.sp.z/1.3)};$("#szo").onclick=()=>{G.sp.z=Math.min(4800,G.sp.z*1.3)};
+$("#sfo").onclick=()=>{const ids=[...G.pl.keys()];if(!ids.length)return;const i=ids.indexOf(G.sp.follow);G.sp.follow=i+1<ids.length?ids[i+1]:null;if(!G.sp.follow)G.sp.free=false;$("#sfo").textContent=G.sp.follow?"Following "+(G.pl.get(G.sp.follow)||{}).name:"Follow a player"};

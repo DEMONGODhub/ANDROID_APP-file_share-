@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 final class GameHub {
     static final double W = 3000, H = 3000, START_R = 18, MIN_BOOST_R = 22;
     static final int ORBS = 220, BOT_FILL = 1;
-    static final int SHOT_COST = 5; // points per shot
+    static final int SHOT_COST = 1; // one pumpkin (1 point) per shot
     static final double HP = 100, SHOT_DAMAGE = 5, POWER_DAMAGE = 15, BULLET_SPEED = 760, BULLET_LIFE = 1.15;
     static final int PH_WAIT = 0, PH_COUNT = 1, PH_RUN = 2, PH_END = 3;
     static final double ZONE_R0 = 1450, ZONE_R1 = 140, ZONE_DPS = 6;
@@ -116,7 +116,7 @@ final class GameHub {
         long respawnAt, nextShot, lastHurt, spawnUntil, speedUntil, rapidUntil, powerUntil, invUntil;
         int kills;
         volatile double dx, dy, aim;
-        volatile boolean boost, fire, pending;
+        volatile boolean boost, fire, pending, spec;
         int think;
         final List<String> notes = new ArrayList<String>();
 
@@ -211,10 +211,35 @@ final class GameHub {
         Player p = new Player(id, name, token, out, rnd.nextInt(360));
         p.av = av != null && av.length() > 0 ? av : "d" + (1 + rnd.nextInt(DEFAULT_AVATARS));
         spawn(p);
+        if (specTokens.contains(token)) p.spec = p.dead = true;
         // a Battle Royale round already under way: watch until the next one
         if (cfg.gameMode == 1 && (phase == PH_RUN || phase == PH_END)) p.dead = true;
         players.put(token, p);
         return p;
+    }
+
+    private final java.util.Set<String> specTokens = new java.util.HashSet<String>();
+
+    /** Host-only: a spectator is out of the arena and sees the whole map (zoomable). Returns false for an unknown player. */
+    synchronized boolean setSpectator(String id, boolean on) {
+        for (Player p : players.values()) {
+            if (p.out == null || !p.id.equals(id)) continue;
+            p.spec = on;
+            if (on) {
+                specTokens.add(p.token);
+                p.dead = true;
+                p.dx = p.dy = 0;
+                p.fire = p.pending = p.boost = false;
+                p.notes.add("You are now a spectator");
+            } else {
+                specTokens.remove(p.token);
+                spawn(p);
+                if (cfg.gameMode == 1 && (phase == PH_RUN || phase == PH_END)) p.dead = true;
+                p.notes.add("You are back in the game");
+            }
+            return true;
+        }
+        return false;
     }
 
     synchronized void leave(Player p) {
@@ -255,6 +280,7 @@ final class GameHub {
     }
 
     void input(Player p, String s) {
+        if (p.spec) return;
         try {
             if (s.startsWith("m ")) {
                 String[] t = s.split(" ");
@@ -271,7 +297,7 @@ final class GameHub {
                 if (on) p.pending = true; // even a very short click fires once
             } else if (s.equals("r")) {
                 synchronized (this) {
-                    if (p.dead && players.get(p.token) == p && (cfg.gameMode != 1 || phase <= PH_COUNT)) spawn(p);
+                    if (p.dead && players.get(p.token) == p && (cfg.gameMode != 1 || phase <= PH_COUNT) && !p.spec) spawn(p);
                 }
             }
         } catch (RuntimeException ignored) {
@@ -294,6 +320,7 @@ final class GameHub {
         p.fire = p.pending = false;
         p.speedUntil = p.rapidUntil = p.powerUntil = p.invUntil = 0;
         p.spawnUntil = clock + 2000;
+        if (p.spec) p.dead = true;
         p.lastHurt = clock;
         if (cfg.gameMode == 1) { // Battle Royale: everyone starts inside the safe zone
             double a = rnd.nextDouble() * Math.PI * 2, d = Math.sqrt(rnd.nextDouble()) * (ZONE_R0 - 150);
@@ -718,7 +745,7 @@ final class GameHub {
                 cy = t.y;
             }
         }
-        double view = me.dead ? 1000 : Math.min(1500, 520 + me.r * 6);
+        double view = me.spec ? 100000 : me.dead ? 1000 : Math.min(1500, 520 + me.r * 6);
         StringBuilder sb = new StringBuilder(2560).append("{\"t\":\"s\",\"p\":[");
         boolean first = true;
         for (Player p : ps) {
@@ -754,7 +781,7 @@ final class GameHub {
                 .append(",\"zr\":").append(Math.round(zoneR)).append(",\"al\":").append(alive).append('}')
                 .append(",\"me\":[").append(Math.round(me.hp)).append(',').append(Math.round(me.hpMax)).append(',').append(score(me.r)).append(',').append(me.kills)
                 .append(',').append(Math.max(0, me.speedUntil - clock)).append(',').append(Math.max(0, me.rapidUntil - clock)).append(',')
-                .append(Math.max(0, me.powerUntil - clock)).append(',').append(Math.max(0, me.invUntil - clock)).append(',').append(watching ? 1 : 0).append(']')
+                .append(Math.max(0, me.powerUntil - clock)).append(',').append(Math.max(0, me.invUntil - clock)).append(',').append(watching ? 1 : 0).append(',').append(me.spec ? 1 : 0).append(']')
                 .append(",\"cx\":").append(Math.round(cx)).append(",\"cy\":").append(Math.round(cy));
         if (!me.notes.isEmpty()) {
             sb.append(",\"nt\":[");
@@ -883,7 +910,7 @@ final class GameHub {
             if (!first) sb.append(',');
             first = false;
             sb.append("{\"id\":").append(Util.q(p.id)).append(",\"name\":").append(Util.q(p.name)).append(",\"av\":").append(Util.q(p.av))
-                    .append(",\"hp\":").append(Math.round(p.hp)).append(",\"score\":").append(score(p.r)).append(",\"dead\":").append(p.dead).append('}');
+                    .append(",\"hp\":").append(Math.round(p.hp)).append(",\"score\":").append(score(p.r)).append(",\"dead\":").append(p.dead).append(",\"spec\":").append(p.spec).append('}');
         }
         return sb.append(']').toString();
     }

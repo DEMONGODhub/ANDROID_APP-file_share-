@@ -700,6 +700,19 @@ public final class MiniServer {
             json(out, false, n > 0 ? 200 : 400, n > 0 ? "{\"ok\":true,\"n\":" + n + "}" : err("No such player or power"));
             return true;
         }
+        if (post && path.equals("/api/spectate")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!s.host || !sameOrigin(r)) {
+                json(out, false, 403, err("Only the host can make someone a spectator"));
+                return true;
+            }
+            boolean on = "1".equals(r.form.get("on"));
+            boolean ok = game != null && r.form.get("id") != null && game.setSpectator(r.form.get("id"), on);
+            if (ok) cfg.log.add("spectate", "Host", "", on ? "spectator on" : "spectator off");
+            json(out, false, ok ? 200 : 404, ok ? "{\"ok\":true}" : err("No such player"));
+            return true;
+        }
         if (get && path.equals("/ws")) return websocket(r, sock, in, out);
         json(out, isHead, 404, err("not found"));
         return true;

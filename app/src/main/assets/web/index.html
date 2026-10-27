@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#17140F">
 <title>LocalShare</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 512 512%22 width=%22512%22 height=%22512%22 role=%22img%22 aria-label=%22LocalShare logo%22%3E %3Cdefs%3E %3ClinearGradient id=%22bg%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23FFB81F%22/%3E%3Cstop offset=%221%22 stop-color=%22%23F08A00%22/%3E%3C/linearGradient%3E %3C/defs%3E %3Crect width=%22512%22 height=%22512%22 rx=%22112%22 fill=%22url(%23bg)%22/%3E %3Cg transform=%22scale(4.7407)%22%3E %3Cpath d=%22M54,22C42.4,22 33,31.4 33,43C33,58.5 54,82 54,82C54,82 75,58.5 75,43C75,31.4 65.6,22 54,22Z%22 fill=%22%23FFF8E8%22/%3E %3Ccircle cx=%2254%22 cy=%2243%22 r=%2211%22 fill=%22%23F7A600%22/%3E %3Ccircle cx=%2254%22 cy=%2243%22 r=%224.5%22 fill=%22%23FFF8E8%22/%3E %3Cpath d=%22M38,95h32%22 stroke=%22%232A1C00%22 stroke-opacity=%22.28%22 stroke-width=%223%22 stroke-linecap=%22round%22/%3E %3C/g%3E %3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20512%20512%22%20width=%22512%22%20height=%22512%22%20role=%22img%22%20aria-label=%22LocalShare%20logo%22%3E%3Cdefs%3E%3CclipPath%20id=%22c%22%3E%3Crect%20width=%22512%22%20height=%22512%22%20rx=%22112%22/%3E%3C/clipPath%3E%3C/defs%3E%3Crect%20width=%22512%22%20height=%22512%22%20rx=%22112%22%20fill=%22%23FFE33B%22/%3E%3Cg%20clip-path=%22url%28%23c%29%22%3E%3Cpolygon%20points=%22120,110%20180,110%20372,118%20672,418%20700,630%20700,690%20420,690%20120,390%22%20fill=%22%23C9AE00%22/%3E%3C/g%3E%3Cpath%20d=%22M120%20110h60v220h220v60H120z%22%20fill=%22%230D0D0D%22/%3E%3Cg%20fill=%22%230D0D0D%22%3E%3Crect%20x=%22225%22%20y=%22118%22%20width=%2262%22%20height=%2262%22%20rx=%224%22/%3E%3Crect%20x=%22310%22%20y=%22118%22%20width=%2262%22%20height=%2262%22%20rx=%224%22/%3E%3Crect%20x=%22225%22%20y=%22203%22%20width=%2262%22%20height=%2262%22%20rx=%224%22/%3E%3Crect%20x=%22310%22%20y=%22203%22%20width=%2262%22%20height=%2262%22%20rx=%224%22/%3E%3C/g%3E%3C/svg%3E">
 <style>
 :root{--bg:#17140F;--surface:#211C14;--surface2:#2B2419;--outline:#3A3122;--text:#F6EFE2;--muted:#A39982;--primary:#F7A600;--primary-text:#F7A600;--onprimary:#2A1C00;--accent:#FF7A45;--danger:#F0745F;--r:16px;--shadow:0 8px 28px rgba(0,0,0,.45)}
 @media (prefers-color-scheme:light){:root{--bg:#FBF6EA;--surface:#FFFFFF;--surface2:#F4ECD9;--outline:#E6DAC0;--text:#231C0F;--muted:#7D705A;--primary-text:#A56A00;--accent:#D9541F;--danger:#C8402F;--shadow:0 8px 28px rgba(60,40,0,.18)}}
@@ -144,6 +144,9 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 #gfire.on{background:#FF7A45;color:#2A1C00}#gfire.off{opacity:.45}
 #gb{right:max(130px,calc(env(safe-area-inset-right) + 118px));bottom:max(36px,env(safe-area-inset-bottom));width:70px;height:70px;font-size:12px}
 #gb.on{background:#F7A600;color:#2A1C00}
+#sbar{position:absolute;left:50%;transform:translateX(-50%);bottom:max(14px,env(safe-area-inset-bottom));display:none;gap:8px;align-items:center;background:rgba(20,14,6,.82);border:1px solid #F7A600;border-radius:22px;padding:6px 10px;color:#fff;font-size:13px;z-index:6;flex-wrap:wrap;justify-content:center;max-width:94vw}
+#sbar span{opacity:.75}#sbar button{min-width:40px;height:36px;border-radius:18px;border:1px solid #F7A600;background:rgba(247,166,0,.2);color:#fff;font:inherit;font-weight:700;padding:0 12px;cursor:pointer}
+#game.spectating #sbar{display:flex}#game.spectating #gfire,#game.spectating #gb,#game.spectating #gh{display:none!important}
 @media (pointer:coarse){#gfire,#gb{display:grid}#mm{width:92px;height:92px}#glb{min-width:130px;font-size:12px;padding:6px 8px}#gbar{width:min(260px,34vw);bottom:max(10px,env(safe-area-inset-bottom))}#feed{display:none}}
 #jy,#jy2{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:60px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.08);pointer-events:none}
 #jy2{border-color:rgba(255,122,69,.6);background:rgba(255,122,69,.1)}
@@ -234,16 +237,18 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
   <canvas class="hud" id="mm" width="240" height="240"></canvas>
   <div class="hud" id="gbar"><div id="pw"></div><div id="hpw" aria-label="Shield"><i id="hpf"></i><span id="hpt"></span></div></div>
   <div id="gctl"><button class="ib" id="ghost" hidden aria-label="Host controls">&#9819;</button><button class="ib" id="gsnd" aria-label="Sound"></button><button class="ib" id="gfs" aria-label="Toggle full screen"></button><button class="ib" id="gx" aria-label="Leave game"></button></div>
-  <button id="gfire" aria-label="Fire"><span><b>FIRE</b><small id="gcost">5 pts</small></span></button>
+  <button id="gfire" aria-label="Fire"><span><b>FIRE</b><small id="gcost">1 pumpkin</small></span></button>
   <button id="gb" aria-label="Boost">BOOST</button>
   <div id="jy" class="hide"><i></i></div><div id="jy2" class="hide"><i></i></div>
   <div class="hud hide" id="gbn" role="status"></div>
+  <div id="sbar"><b>Spectating</b><span>drag to move · scroll or pinch to zoom</span><button id="szo" aria-label="Zoom out">&minus;</button><button id="szi" aria-label="Zoom in">+</button><button id="sfo">Follow a player</button></div>
   <div id="gh"></div>
   <div class="hud hide" id="gconn">Reconnecting&hellip;</div>
   <div id="hp" class="hide" role="dialog" aria-label="Host controls">
     <h4>Game mode</h4><div class="seg"><button data-m="0">PvP</button><button data-m="1">Battle Royale</button></div>
     <h4>Give a super power</h4><select id="hpt2" aria-label="Who gets the power"><option value="all">Everyone</option></select>
     <div class="pws"><button data-p="speed">Speed Surge<small>fast for 15 s</small></button><button data-p="rapid">Rapid Fire<small>free shots, 15 s</small></button><button data-p="power">Power Shot<small>15 damage, 15 s</small></button><button data-p="shield">Iron Shield<small>150 HP, full heal</small></button><button data-p="invincible">Invincible<small>8 seconds</small></button></div>
+    <h4>Spectators</h4><div class="pws"><button id="hpob">Observe the match<small>leave the arena, see it all, zoom</small></button><button id="hpsp">Make selected a spectator<small>pick a player above</small></button></div>
     <div class="note" id="hpn">Only you, the host, can give powers.</div>
   </div>
   <div id="dead" class="hide"><div><h2>Game over</h2><p id="dmsg"></p><button class="btn pri" id="again" style="justify-self:center">Play again</button></div></div>
@@ -715,8 +720,8 @@ addEventListener("keydown",e=>{
 });
 
 </script>
-<script src="/static/avatar.js?v=4"></script>
-<script src="/static/arena.js?v=4"></script>
+<script src="/static/avatar.js?v=5"></script>
+<script src="/static/arena.js?v=5"></script>
 <script>boot();</script>
 </body>
 </html>

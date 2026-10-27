@@ -80,24 +80,24 @@ public class ArenaTest {
         h.input(a, "f 0");
         check("a click fires one bullet", h.bulletCount() == 1);
         double r = h.stateOf(a)[2];
-        check("a shot costs 5 points (radius^2 drops by 50): " + r, r < 29.2 && r > 28.95);
+        check("a shot costs one pumpkin (radius^2 drops by 10): " + r, r < 29.9 && r > 29.75);
         ticks(h, 12);
         check("a hit deals 5 damage", h.hpOf(b) == 95);
         check("bullet is gone after the hit", h.bulletCount() == 0);
         check("target is told its HP in the snapshot", rb.snap().contains("\"me\":[95,100,"));
         check("hit event sent", ra.got("[\"h\","));
 
-        h.place(a, 1000, 1000, 19.2);
+        h.place(a, 1000, 1000, 18);
         h.input(a, "f 1");
         h.tick();
         h.input(a, "f 0");
-        check("under 5 points: no shot (score 4)", h.bulletCount() == 0);
-        h.place(a, 1000, 1000, 19.5);
+        check("no pumpkin eaten: no shot", h.bulletCount() == 0);
+        h.place(a, 1000, 1000, 19);
         ticks(h, 8);
         h.input(a, "f 1");
         h.tick();
         h.input(a, "f 0");
-        check("with 5 points the gun fires", h.bulletCount() == 1);
+        check("with one pumpkin the gun fires", h.bulletCount() == 1);
         ticks(h, 12);
 
         h.place(a, 1000, 1000, 60);
@@ -153,6 +153,20 @@ public class ArenaTest {
         h.setAvatar("ta", "c7");
         h.tick();
         check("a blessing swaps the avatar for its hero", ra.snap().contains("\"b3\"") && rb.snap().contains("\"b5\""));
+
+        System.out.println("== arena: spectators");
+        h.place(a, 1000, 1000, 18);
+        check("unknown player cannot be made a spectator", !h.setSpectator("zzzz", true));
+        check("host makes a player a spectator", h.setSpectator("bbbb", true));
+        h.input(b, "m 1 0");
+        ticks(h, 4);
+        check("a spectator is out of the arena", h.stateOf(b)[3] == 1);
+        check("a spectator sees everyone, from anywhere", rb.snap().contains("[\"aaaa\",\"Alice\"") && rb.snap().matches("(?s).*\"me\":\\[[^\\]]*,1\\].*"));
+        check("a spectator cannot respawn", h.stateOf(b)[3] == 1);
+        check("let the player back in", h.setSpectator("bbbb", false));
+        h.tick();
+        check("back in the arena", h.stateOf(b)[3] == 0);
+
         
         h = hub(cfg, 1);
         ra = new Rec();

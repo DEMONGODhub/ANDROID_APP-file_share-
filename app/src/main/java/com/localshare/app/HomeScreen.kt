@@ -86,7 +86,15 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
     fun start() {
         if (Build.VERSION.SDK_INT >= 33 && !perms.notifications) notif.launch(Manifest.permission.POST_NOTIFICATIONS)
         ShareService.start(ctx)
-        if (Build.VERSION.SDK_INT >= 23 && !perms.unrestricted) requestUnrestricted(ctx)
+        // only ask while the exemption is off, and not again for 3 days after the person has seen the box
+        if (Build.VERSION.SDK_INT >= 23 && !readPerms(ctx).unrestricted) {
+            val sp = ctx.getSharedPreferences("battery_ask", android.content.Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            if (now - sp.getLong("at", 0L) > 3L * 24 * 3600 * 1000) {
+                sp.edit().putLong("at", now).apply()
+                requestUnrestricted(ctx)
+            }
+        }
     }
 
     LazyColumn(
