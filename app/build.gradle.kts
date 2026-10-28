@@ -12,8 +12,8 @@ android {
         applicationId = "com.localshare.app"
         minSdk = 21            // Android 5.0+ (covers ~99% of devices)
         targetSdk = 35
-        versionCode = 6
-        versionName = "2.5.0"
+        versionCode = 7
+        versionName = "2.5.1"
     }
 
     buildTypes {

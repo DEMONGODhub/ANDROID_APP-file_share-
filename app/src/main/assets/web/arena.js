@@ -1,6 +1,6 @@
 "use strict";
 /* Orb Arena client: every sphere carries a gun that points where you aim (like its eyes). Needs the page helpers $, J, store, toast, ME, INFO, DEV, AV. */
-const G={ws:null,on:false,me:null,W:3000,H:3000,r0:18,cost:1,mode:0,tp:new Map(),sp:{x:1500,y:1500,z:2200,free:false,follow:null},spec(){return !!(this.my&&this.my[9])},pl:new Map(),os:[],bl:[],lb:[],mm:[],n:0,g:{m:0,ph:0,t:0,zr:1450,al:0},my:[100,100,0,0,0,0,0,0,0],
+const G={ws:null,on:false,me:null,W:4500,H:4500,r0:18,cost:1,mode:0,tp:new Map(),sp:{x:2250,y:2250,z:2200,free:false,follow:null},spec(){return !!(this.my&&this.my[9])},pl:new Map(),os:[],bl:[],lb:[],mm:[],n:0,g:{m:0,ph:0,t:0,zr:2150,al:0},my:[100,100,0,0,0,0,0,0,0],
  keys:{},mouse:{x:innerWidth/2,y:innerHeight/2},lbtn:false,rbtn:false,joy:null,jid:-1,ajoy:null,aid:-1,aim:0,aimSent:9,fireBtn:false,boostBtn:false,tapUntil:0,sf:0,sb:0,sent:"",lastSend:0,lastAim:0,
  cam:{x:1500,y:1500,z:900},k:1,raf:0,last:0,dead:false,fx:[],rings:[],floats:[],feed:[],trails:new Map(),seen:new Set(),shake:0,flash:0,hudT:0,pt:0,wl:null,
  touch:matchMedia("(pointer:coarse)").matches,hostOpen:false,rosterT:0,bannerT:0,lastCount:-1,fs:false,fireWas:false};
@@ -30,7 +30,7 @@ function gameOpen(){
   G.dead=false;$("#dead").classList.add("hide");$("#gconn").classList.add("hide");$("#hp").classList.add("hide");G.hostOpen=false;
   $("#ghost").hidden=!ME.host;paintSnd();
   $("#gav").src=AV.mine==="c"?AV.img:avSrc(AV.mine);
-  $("#gh").textContent=G.touch?"One stick: the gun points the way you move · hold FIRE to shoot (1 pumpkin a shot) · BOOST dashes":"Move: WASD · Aim: mouse · Fire: click or Space (1 pumpkin a shot) · Boost: Shift · Esc leaves";
+  $("#gh").textContent=G.touch?"One stick: the gun points the way you move · hold FIRE to shoot (1 pumpkin a shot) · BOOST dashes":"Move: your mouse (the ball follows the cursor, the gun points at it) or WASD · Fire: click or Space (1 pumpkin a shot) · Boost: Shift · Esc leaves";
   $("#gh").style.opacity=1;setTimeout(()=>{$("#gh").style.opacity=0},7000);
   try{if(navigator.wakeLock)navigator.wakeLock.request("screen").then(l=>{G.wl=l}).catch(()=>{})}catch(e){}
   gameConnect();G.last=performance.now();cancelAnimationFrame(G.raf);G.raf=requestAnimationFrame(frame);
@@ -176,6 +176,7 @@ function inputVec(){
   if(k.ArrowLeft||k.a)x--;if(k.ArrowRight||k.d)x++;if(k.ArrowUp||k.w)y--;if(k.ArrowDown||k.s)y++;
   if(x||y){const m=Math.hypot(x,y);return[x/m,y/m]}
   if(G.joy)return[G.joy.x,G.joy.y];
+  if(G.mv)return G.mv;
   return[0,0];
 }
 function sendInput(now){
@@ -315,7 +316,9 @@ function frame(now){
   const targetH=Math.min(700+4*r,1.9*view/Math.max(1,asp),1.9*view);G.cam.z+=((sp?G.sp.z:targetH)-G.cam.z)*(1-Math.exp(-dt*(sp?10:4)));
   const k=ch/G.cam.z;G.k=k;
   // aim: the mouse cursor on a laptop, the right thumb on a phone
-  if(me&&!sp&&G.aid<0&&(!G.touch||G.mouse.moved)){const sx=((me.x-G.cam.x)*k+cw/2)/dpr,sy=((me.y-G.cam.y)*k+ch/2)/dpr;G.aim=Math.atan2(G.mouse.y-sy,G.mouse.x-sx)}
+  if(me&&!sp&&G.aid<0&&(!G.touch||G.mouse.moved)){const sx=((me.x-G.cam.x)*k+cw/2)/dpr,sy=((me.y-G.cam.y)*k+ch/2)/dpr;const dx=G.mouse.x-sx,dy=G.mouse.y-sy,d=Math.hypot(dx,dy),dead=Math.max(8,me.r*k/dpr*.45);G.aim=Math.atan2(dy,dx);
+    // desktop: the sphere follows the cursor and the gun points at it; further away = faster
+    G.mv=!G.touch||G.mouse.moved?(G.mouse.out||d<dead?null:[dx/d*Math.min(1,(d-dead)/120),dy/d*Math.min(1,(d-dead)/120)]):null}else G.mv=null
   let shx=0,shy=0;if(G.shake>.2){shx=(rnd()-.5)*G.shake;shy=(rnd()-.5)*G.shake;G.shake*=Math.pow(.02,dt)}
   ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#000000";ctx.fillRect(0,0,cw,ch);
   ctx.setTransform(k,0,0,k,cw/2-G.cam.x*k+shx*dpr,ch/2-G.cam.y*k+shy*dpr);
@@ -371,3 +374,6 @@ addEventListener("resize",()=>{if(G.on)resizeCv(true)});
 
 $("#szi").onclick=()=>{G.sp.z=Math.max(500,G.sp.z/1.3)};$("#szo").onclick=()=>{G.sp.z=Math.min(4800,G.sp.z*1.3)};
 $("#sfo").onclick=()=>{const ids=[...G.pl.keys()];if(!ids.length)return;const i=ids.indexOf(G.sp.follow);G.sp.follow=i+1<ids.length?ids[i+1]:null;if(!G.sp.follow)G.sp.free=false;$("#sfo").textContent=G.sp.follow?"Following "+(G.pl.get(G.sp.follow)||{}).name:"Follow a player"};
+
+document.addEventListener("mouseleave",()=>{G.mouse.out=true});document.addEventListener("mouseenter",()=>{G.mouse.out=false});
+cv.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")G.mouse.out=false},true);

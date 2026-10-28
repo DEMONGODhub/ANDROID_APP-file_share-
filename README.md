@@ -36,6 +36,8 @@ java -cp out Harness test "$PWD/app/src/main/assets/web"
 - `app/src/main/java/.../*.kt` the Compose app; `ui/Theme.kt` and the `:root{}` block of `index.html` share one palette.
 
 ## Build the APK
+Easiest: push to GitHub. The **Build APK** workflow (Actions tab) builds it and attaches `LocalShare-debug-apk` to the run. Download, unzip, install.
+
 1. Install [Android Studio](https://developer.android.com/studio) (it includes the Android SDK and the JDK it needs).
 2. **File -> Open** and choose this folder. Wait for the Gradle sync to finish (first time it downloads dependencies).
 3. Test: connect a phone with USB debugging on (or start an emulator) and press **Run**.

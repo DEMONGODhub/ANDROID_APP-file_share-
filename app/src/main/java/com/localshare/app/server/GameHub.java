@@ -29,13 +29,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * single player is never alone. Super powers can only be granted by the host ({@link #grant}).
  */
 final class GameHub {
-    static final double W = 3000, H = 3000, START_R = 18, MIN_BOOST_R = 22;
-    static final int ORBS = 220, BOT_FILL = 1;
+    static final double W = 4500, H = 4500, START_R = 18, MIN_BOOST_R = 22;
+    static final int ORBS = 480, BOT_FILL = 1;
     static final int SHOT_COST = 1; // one pumpkin (1 point) per shot
     static final double HP = 100, SHOT_DAMAGE = 5, POWER_DAMAGE = 15, BULLET_SPEED = 760, BULLET_LIFE = 1.15;
     static final int PH_WAIT = 0, PH_COUNT = 1, PH_RUN = 2, PH_END = 3;
-    static final double ZONE_R0 = 1450, ZONE_R1 = 140, ZONE_DPS = 6;
-    static final long COUNT_MS = 8000, END_MS = 7000, SHRINK_MS = 150000;
+    static final double ZONE_R0 = 2150, ZONE_R1 = 140, ZONE_DPS = 6;
+    static final long COUNT_MS = 8000, END_MS = 7000, SHRINK_MS = 180000;
     static final int DEFAULT_AVATARS = 6;
     static final String[] POWERS = {"speed", "rapid", "power", "shield", "invincible"};
     private static final String[] POWER_LABELS = {"Speed Surge", "Rapid Fire", "Power Shot", "Iron Shield", "Invincible"};
