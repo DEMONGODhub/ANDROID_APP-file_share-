@@ -40,7 +40,7 @@ private fun parse(json: String): List<Gamer> = try {
 
 /** Everything about the game in one place: modes, the host's own play and observe, spectators and super powers. */
 @Composable
-fun GameScreen(st: UiState, open: (String) -> Unit) {
+fun GameScreen(st: UiState, onOpen: (String) -> Unit) {
     var players by remember { mutableStateOf<List<Gamer>>(emptyList()) }
     var note by remember { mutableStateOf("") }
     LaunchedEffect(st.running) {
@@ -82,8 +82,8 @@ fun GameScreen(st: UiState, open: (String) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button({ open("play") }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = st.running) { Text("Play") }
-                    OutlinedButton({ open("obs") }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = st.running) { Text("Observe live") }
+                    Button({ onOpen("play") }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = st.running) { Text("Play") }
+                    OutlinedButton({ onOpen("obs") }, Modifier.weight(1f).heightIn(min = 48.dp), enabled = st.running) { Text("Observe live") }
                 }
             }
         }
