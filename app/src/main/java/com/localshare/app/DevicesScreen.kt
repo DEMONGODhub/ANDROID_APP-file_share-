@@ -106,7 +106,7 @@ private fun DevicePermsDialog(d: Device, st: UiState, onClose: () -> Unit) {
                 PermRow("Edit text files", "Can change .txt, .md, .json and other text files (up to 512 KB)", p and 4 != 0, enabled = !gameOnly) { set(4, it) }
                 Text(
                     if (st.gameOnly) "Game-only mode is on for everyone."
-                    else if (!st.gameEnabled) "Turn on the game in Settings to use Game only."
+                    else if (!st.gameEnabled) "Turn on the game in the Game tab to use Game only."
                     else "Applies to this device and is remembered for its browser.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp),
                 )

@@ -53,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,10 +72,11 @@ class MainActivity : ComponentActivity() {
 private fun App() {
     val st by ShareController.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var browser by rememberSaveable { mutableStateOf(false) }
+    var browser by rememberSaveable { mutableStateOf<String?>(null) } // null = closed, "" = files and game, "play" / "obs" = straight into the game
 
-    if (browser && st.running) {
-        HostBrowser(st.port, st.hostToken) { browser = false }
+    val mode = browser
+    if (mode != null && st.running) {
+        HostBrowser(st.port, st.hostToken, mode) { browser = null }
         return
     }
     Scaffold(
@@ -85,16 +87,18 @@ private fun App() {
                 NavigationBarItem(tab == 1, { tab = 1 }, {
                     BadgedBox(badge = { if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
                 }, label = { Text("Devices") })
-                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") })
-                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") })
+                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(painterResource(R.drawable.ic_gamepad), null) }, label = { Text("Game") })
+                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") })
+                NavigationBarItem(tab == 4, { tab = 4 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") })
             }
         },
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (tab) {
-                0 -> HomeScreen(st) { browser = true }
+                0 -> HomeScreen(st) { browser = "" }
                 1 -> DevicesScreen(st)
-                2 -> ActivityScreen(st)
+                2 -> GameScreen(st) { browser = it }
+                3 -> ActivityScreen(st)
                 else -> SettingsScreen(st)
             }
         }
@@ -104,7 +108,7 @@ private fun App() {
 /** The host sees the same page guests see, signed in automatically from this phone. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun HostBrowser(port: Int, token: String, onClose: () -> Unit) {
+private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> Unit) {
     var web by remember { mutableStateOf<WebView?>(null) }
     // lets the host page's Upload button and profile picture chooser open Android's file picker
     var pending by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
@@ -126,7 +130,7 @@ private fun HostBrowser(port: Int, token: String, onClose: () -> Unit) {
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.mediaPlaybackRequiresUserGesture = false
-                    setBackgroundColor(0xFF17140F.toInt())
+                    setBackgroundColor(0xFF000000.toInt())
                     webViewClient = WebViewClient()
                     webChromeClient = object : WebChromeClient() {
                         override fun onShowFileChooser(w: WebView?, cb: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
@@ -136,7 +140,7 @@ private fun HostBrowser(port: Int, token: String, onClose: () -> Unit) {
                         }
                     }
                     setDownloadListener { url, agent, disposition, mime, _ -> download(ctx, url, agent, disposition, mime) }
-                    loadUrl("http://127.0.0.1:$port/#ht=$token")
+                    loadUrl("http://127.0.0.1:$port/#ht=$token" + if (mode.isEmpty()) "" else "&g=$mode")
                     web = this
                 }
             },

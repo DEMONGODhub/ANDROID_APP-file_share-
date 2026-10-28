@@ -224,6 +224,7 @@ final class GameHub {
     synchronized boolean setSpectator(String id, boolean on) {
         for (Player p : players.values()) {
             if (p.out == null || !p.id.equals(id)) continue;
+            if (!on && !p.spec) return true;
             p.spec = on;
             if (on) {
                 specTokens.add(p.token);

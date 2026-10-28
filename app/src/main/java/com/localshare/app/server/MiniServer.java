@@ -556,6 +556,10 @@ public final class MiniServer {
             }
             fails.remove(r.ip);
             if (device.length() > 0) for (Session s : sessions.values()) if (!s.host && device.equals(s.device)) drop(s);
+            if (name.length() > 0 && nameInUse(name)) {
+                json(out, false, 409, "{\"error\":\"That name is already taken. Please pick another one.\",\"taken\":true}");
+                return;
+            }
             if (activeCount(null) >= cfg.maxClients) {
                 cfg.log.add("full", name, r.ip, "room full");
                 json(out, false, 429, "{\"error\":\"Room is full\",\"max\":" + cfg.maxClients + "}");
@@ -564,13 +568,27 @@ public final class MiniServer {
         } else {
             for (Session s : sessions.values()) if (s.host) drop(s);
         }
-        if (name.length() == 0) name = host ? "Host" : "Guest " + (100 + rnd.nextInt(900));
+        if (name.length() == 0) {
+            name = host ? "Host" : "Guest " + (100 + rnd.nextInt(900));
+            for (int i = 0; !host && i < 20 && nameInUse(name); i++) name = "Guest " + (100 + rnd.nextInt(900));
+        }
         if (!host) cfg.log.add("join", name, r.ip, "");
         String token = hex(16);
         Session s = new Session(token, hex(4), name, r.ip, device, host);
         sessions.put(token, s);
         json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + ",\"host\":" + host + "}",
                 "Set-Cookie: ls_token=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400");
+    }
+
+    /** True when another signed-in person (or the host) is already using this name; compared without case or extra spaces. */
+    private boolean nameInUse(String name) {
+        String n = name.trim().toLowerCase(java.util.Locale.ROOT);
+        long now = System.currentTimeMillis();
+        for (Session s : sessions.values()) {
+            if (!s.host && now - s.lastSeen >= ACTIVE_MS) continue;
+            if (s.name.trim().toLowerCase(java.util.Locale.ROOT).equals(n)) return true;
+        }
+        return false;
     }
 
     /** @return true when the connection may be reused for another request */
@@ -1340,6 +1358,18 @@ public final class MiniServer {
         }
         json(out, isHead, 404, err("no picture"));
         return true;
+    }
+
+    /** Host-side (app): everyone in the arena as JSON, for the Game tab. */
+    public String gameRoster() {
+        return game == null ? "[]" : game.rosterJson();
+    }
+
+    /** Host-side (app): make a player a spectator, or let them play again. */
+    public boolean setSpectator(String id, boolean on) {
+        boolean ok = game != null && id != null && game.setSpectator(id, on);
+        if (ok) cfg.log.add("spectate", "Host", "", on ? "spectator on" : "spectator off");
+        return ok;
     }
 
     /** Host-side: give a super power to one player or to everyone ("all"). Only the host can call this. */

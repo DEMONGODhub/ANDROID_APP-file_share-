@@ -174,22 +174,12 @@ private fun StatusCard(
                 Text("Open this address in a browser on any device on the same network.", color = fg.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
             } else {
                 Text(
-                    if (st.gameOnly) "Game-only mode: guests can play but never see your files."
+                    if (st.gameOnly) "Game-only mode is on (change it in the Game tab): guests can play but never see your files."
                     else if (st.folders.isEmpty()) "Add a folder below to get started." else "Ready to share ${st.folders.size} ${if (st.folders.size == 1) "folder" else "folders"}.",
                     color = c.onSurfaceVariant,
                 )
             }
             st.error?.let { Text(it, color = c.error) }
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(st.gameOnly, role = Role.Switch) { ShareController.setGameOnly(it) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Game-only mode", color = fg, fontWeight = FontWeight.SemiBold)
-                    Text("Host just the game. No folders needed, no files visible.", color = fg.copy(alpha = .8f), style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(st.gameOnly, null)
-            }
             Button(
                 onClick = { if (st.running) onStop() else onStart() },
                 enabled = st.running || st.folders.isNotEmpty() || st.gameOnly,

@@ -86,7 +86,7 @@ function feed(text,color){
   while($("#feed").children.length>5)$("#feed").lastChild.remove();setTimeout(()=>d.remove(),6000);
 }
 function onMsg(m){
-  if(m.t==="hello"){G.me=m.id;G.W=m.w;G.H=m.h;G.r0=m.r0||18;G.cost=m.cost||1;G.mode=m.mode||0;$("#gcost").textContent="1 pumpkin";return}
+  if(m.t==="hello"){G.me=m.id;G.W=m.w;G.H=m.h;G.r0=m.r0||18;G.cost=m.cost||1;G.mode=m.mode||0;if(window.gameAuto==="obs")setTimeout(()=>setSpec(G.me,true),400);else if(window.gameAuto==="play")setTimeout(()=>setSpec(G.me,false),400);window.gameAuto="";$("#gcost").textContent="1 pumpkin";return}
   if(m.t==="dead"){
     G.dead=true;G.deadAt=performance.now();const box=$("#dead");box.classList.remove("hide");box.classList.toggle("soft",G.mode===1);
     $("#dmsg").textContent="Eliminated by "+m.by+". Score "+m.score+(m.kills?" · "+m.kills+" kills":"")+".";
@@ -111,7 +111,7 @@ function onMsg(m){
     o.pts.push(b[1],b[2]);if(o.pts.length>14)o.pts.splice(0,2)}
   for(const id of[...G.trails.keys()])if(!nb.has(id))G.trails.delete(id);
   for(const e of m.ev)gameEvent(e);
-  if(m.nt)for(const t of m.nt){feed(t,"#F7A600");banner("POWER UP",t,2200);beep(520,.25,"triangle",.07,1040)}
+  if(m.nt)for(const t of m.nt){feed(t,"#FFE33B");banner("POWER UP",t,2200);beep(520,.25,"triangle",.07,1040)}
 }
 function shotFx(b){ // muzzle flash + recoil on the sphere that fired
   let best=null,bd=1e9;for(const p of G.pl.values()){const d=Math.hypot(p.x-b.x,p.y-b.y)-p.r;if(p.hue===b.hue&&d<bd){bd=d;best=p}}
@@ -230,7 +230,7 @@ function resizeCv(force){
 // the ground: a dark tile with ash specks, a ring of old runes, and drifting embers
 const tile=(()=>{const c=document.createElement("canvas");c.width=c.height=256;const x=c.getContext("2d");x.fillStyle="#17120C";x.fillRect(0,0,256,256);
   for(let i=0;i<70;i++){x.fillStyle=`rgba(${60+rnd()*40|0},${40+rnd()*25|0},${20+rnd()*15|0},${.08+rnd()*.14})`;x.beginPath();x.arc(rnd()*256,rnd()*256,1+rnd()*5,0,TAU);x.fill()}
-  x.strokeStyle="rgba(247,166,0,.055)";x.lineWidth=2;for(let i=0;i<=256;i+=128){x.beginPath();x.moveTo(i,0);x.lineTo(i,256);x.moveTo(0,i);x.lineTo(256,i);x.stroke()}return c})();
+  x.strokeStyle="rgba(255,227,59,.055)";x.lineWidth=2;for(let i=0;i<=256;i+=128){x.beginPath();x.moveTo(i,0);x.lineTo(i,256);x.moveTo(0,i);x.lineTo(256,i);x.stroke()}return c})();
 const runes=[];{let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;for(let i=0;i<34;i++)runes.push({x:150+r()*2700,y:150+r()*2700,r:50+r()*90,n:3+(r()*4|0),a:r()*TAU})}
 const embers=[];for(let i=0;i<60;i++)embers.push({x:rnd(),y:rnd(),s:.4+rnd()*1.2,p:rnd()*TAU});
 function drawGround(k,x0,y0,x1,y1,t){
@@ -242,7 +242,7 @@ function drawGround(k,x0,y0,x1,y1,t){
     ctx.beginPath();for(let i=0;i<=u.n*2;i++){const a=i*Math.PI/u.n*Math.floor(u.n/2||1)%TAU,xx=Math.cos(a)*u.r*.82,yy=Math.sin(a)*u.r*.82;i?ctx.lineTo(xx,yy):ctx.moveTo(xx,yy)}ctx.stroke();ctx.restore();
   }
   // walls: a glowing edge with warning stripes outside the arena
-  ctx.save();ctx.shadowColor="#F7A600";ctx.shadowBlur=24;ctx.strokeStyle="#F7A600";ctx.lineWidth=8;ctx.strokeRect(0,0,G.W,G.H);ctx.restore();
+  ctx.save();ctx.shadowColor="#FFE33B";ctx.shadowBlur=24;ctx.strokeStyle="#FFE33B";ctx.lineWidth=8;ctx.strokeRect(0,0,G.W,G.H);ctx.restore();
   ctx.fillStyle="rgba(5,3,1,.82)";ctx.fillRect(-4000,-4000,4000+G.W+4000,4000);ctx.fillRect(-4000,G.H,G.W+8000,4000);ctx.fillRect(-4000,0,4000,G.H);ctx.fillRect(G.W,0,4000,G.H);
 }
 function drawGun(p,len,ang,rec,hue,bits){
@@ -250,7 +250,7 @@ function drawGun(p,len,ang,rec,hue,bits){
   const g0=r*.55-back,g1=r*1.32-back,w=r*.3;
   ctx.fillStyle="#3b3328";ctx.beginPath();ctx.roundRect?ctx.roundRect(g0,-w/2,g1-g0,w,w*.28):ctx.rect(g0,-w/2,g1-g0,w);ctx.fill();
   ctx.fillStyle="rgba(255,255,255,.22)";ctx.fillRect(g0,-w/2,g1-g0,w*.22);
-  ctx.fillStyle=bits&4?"#ff5a3c":bits&2?"#ffb020":"#F7A600";ctx.fillRect(g1-r*.12,-w*.62,r*.14,w*1.24);
+  ctx.fillStyle=bits&4?"#ff5a3c":bits&2?"#ffb020":"#FFE33B";ctx.fillRect(g1-r*.12,-w*.62,r*.14,w*1.24);
   ctx.fillStyle="#2a2219";ctx.fillRect(g0-r*.04,-w*.78,r*.2,w*1.56);
   if(rec>.6){ctx.fillStyle=`rgba(255,220,120,${rec})`;ctx.beginPath();ctx.moveTo(g1,-w*.9);ctx.lineTo(g1+r*.9*rec,0);ctx.lineTo(g1,w*.9);ctx.fill()}
   ctx.restore();
@@ -317,7 +317,7 @@ function frame(now){
   // aim: the mouse cursor on a laptop, the right thumb on a phone
   if(me&&!sp&&G.aid<0&&(!G.touch||G.mouse.moved)){const sx=((me.x-G.cam.x)*k+cw/2)/dpr,sy=((me.y-G.cam.y)*k+ch/2)/dpr;G.aim=Math.atan2(G.mouse.y-sy,G.mouse.x-sx)}
   let shx=0,shy=0;if(G.shake>.2){shx=(rnd()-.5)*G.shake;shy=(rnd()-.5)*G.shake;G.shake*=Math.pow(.02,dt)}
-  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#070503";ctx.fillRect(0,0,cw,ch);
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle="#000000";ctx.fillRect(0,0,cw,ch);
   ctx.setTransform(k,0,0,k,cw/2-G.cam.x*k+shx*dpr,ch/2-G.cam.y*k+shy*dpr);
   const hw=cw/k/2,hh=ch/k/2,x0=G.cam.x-hw,x1=G.cam.x+hw,y0=G.cam.y-hh,y1=G.cam.y+hh;
   drawGround(k,x0,y0,x1,y1,t);
@@ -361,9 +361,9 @@ function hud(me){
   const lb=$("#glb");lb.innerHTML="";
   G.lb.forEach((e,i)=>{const d=document.createElement("div");if(e[0]===G.me)d.className="me";const im=document.createElement("img");im.alt="";im.src=avSrc(e[4],e[0]);
     const a=document.createElement("span");a.textContent=(i+1)+". "+e[1];const b=document.createElement("span");b.textContent=e[2]+(e[3]?" · "+e[3]+"★":"");d.append(im,a,b);lb.appendChild(d)});
-  const s=mmc.width;mmx.clearRect(0,0,s,s);mmx.strokeStyle="rgba(247,166,0,.8)";mmx.lineWidth=2;mmx.strokeRect(1,1,s-2,s-2);
+  const s=mmc.width;mmx.clearRect(0,0,s,s);mmx.strokeStyle="rgba(255,227,59,.8)";mmx.lineWidth=2;mmx.strokeRect(1,1,s-2,s-2);
   if(g.m===1&&g.ph>=1){mmx.strokeStyle="rgba(255,100,70,.9)";mmx.beginPath();mmx.arc(s/2,s/2,g.zr/G.W*s,0,TAU);mmx.stroke()}
-  for(const m of G.mm){const mine=m[0]===G.me;mmx.fillStyle=mine?"#F7A600":"rgba(255,255,255,.75)";mmx.beginPath();mmx.arc(m[1]/G.W*s,m[2]/G.H*s,mine?6:Math.max(3,m[3]/G.W*s*1.4),0,TAU);mmx.fill()}
+  for(const m of G.mm){const mine=m[0]===G.me;mmx.fillStyle=mine?"#FFE33B":"rgba(255,255,255,.75)";mmx.beginPath();mmx.arc(m[1]/G.W*s,m[2]/G.H*s,mine?6:Math.max(3,m[3]/G.W*s*1.4),0,TAU);mmx.fill()}
 }
 cv.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")G.mouse.moved=true},true);
 addEventListener("resize",()=>{if(G.on)resizeCv(true)});

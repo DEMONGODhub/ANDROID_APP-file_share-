@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#17140F">
+<meta name="theme-color" content="#000000">
 <title>PDF</title>
 <style>
-:root{--bg:#17140F;--surface:#211C14;--surface2:#2B2419;--outline:#3A3122;--text:#F6EFE2;--muted:#A39982;--primary:#F7A600;--onprimary:#2A1C00}
-@media (prefers-color-scheme:light){:root{--bg:#EFE7D6;--surface:#FFFFFF;--surface2:#F4ECD9;--outline:#E0D3B6;--text:#231C0F;--muted:#7D705A}}
+:root{--bg:#000000;--surface:#0E0E0E;--surface2:#1B1B1B;--outline:#34310F;--text:#F7F3DC;--muted:#A7A27A;--primary:#FFE33B;--onprimary:#000000}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{display:flex;flex-direction:column}
@@ -40,7 +39,7 @@ body.sepia .pg canvas{filter:sepia(.55) brightness(.97)}
 body.dark .pg canvas{filter:invert(.92) hue-rotate(180deg)}
 .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;opacity:1}
 .textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
-.textLayer ::selection{background:rgba(247,166,0,.4)}
+.textLayer ::selection{background:rgba(255,227,59,.4)}
 .textLayer .hit{background:rgba(255,220,0,.45);border-radius:2px}
 .textLayer .cur{background:rgba(247,120,0,.6);outline:2px solid rgba(247,120,0,.9)}
 #msg{margin:auto;text-align:center;color:var(--muted);padding:24px;max-width:420px}

@@ -128,6 +128,9 @@ object ShareController {
 
     fun deviceGameOk(): Boolean = prefs.gameEnabled || prefs.gameOnly
 
+    fun gameRoster(): String = server?.gameRoster() ?: "[]"
+    fun setSpectator(id: String, on: Boolean) { server?.setSpectator(id, on) }
+    fun givePower(id: String, power: String): Int = server?.grantPower(id, power) ?: 0
     fun kick(id: String) { server?.kick(id); refresh() }
     fun block(id: String) { server?.block(id); refresh() }
     fun unblock(id: String) { cfg.removeBlock(id); refresh() }

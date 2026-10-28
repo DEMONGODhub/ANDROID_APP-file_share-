@@ -357,6 +357,12 @@ public class Harness {
         check("a shared-folder root cannot be deleted", req("POST", "/api/delete", t2, "path=Main&recursive=1").code == 400 && main.isDirectory());
         check("the log recorded rename/move", c.log.recent().toString().length() > 0);
 
+        System.out.println("== unique names");
+        check("first Zed signs in", login("dev-na", "", "Zed") != null);
+        check("same name on another device -> 409", req("POST", "/api/login", null, "device=dev-nb&name=Zed&password=").code == 409);
+        check("same name, other case -> 409", req("POST", "/api/login", null, "device=dev-nb&name=%20ZED%20&password=").code == 409);
+        check("the same device can sign in again", login("dev-na", "", "Zed") != null);
+        check("a different name is fine", login("dev-nb", "", "Zoe") != null);
         System.out.println("== per-device game only");
         s.setPerms(sid(s, "Pat"), ServerConfig.P_GAME_ONLY | ServerConfig.P_DELETE);
         check("game-only device cannot list -> 403", req("GET", "/api/list?path=", t2, null).code == 403);

@@ -115,22 +115,6 @@ fun SettingsScreen(st: UiState) {
         }
         item {
             SectionCard {
-                SwitchRow("Orb Arena game", if (st.gameOnly) "Always on in game-only mode" else "Full-screen multiplayer game for guests", st.gameEnabled) { if (!st.gameOnly) ShareController.setGame(it) }
-                Text("Game mode", fontWeight = FontWeight.SemiBold)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(st.gameMode == 0, { ShareController.setGameMode(0) }, { Text("PvP") })
-                    FilterChip(st.gameMode == 1, { ShareController.setGameMode(1) }, { Text("Battle Royale") })
-                }
-                Text(
-                    if (st.gameMode == 1) "Rounds with a shrinking safe zone. The last player standing wins." else "Endless fights. You respawn after you are out.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
-                )
-                Text("Super powers can only be given by you, from the crown button inside the game.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                SwitchRow("Game-only mode", "Guests only see the game, never your files", st.gameOnly) { ShareController.setGameOnly(it) }
-            }
-        }
-        item {
-            SectionCard {
                 Text("Port", fontWeight = FontWeight.SemiBold)
                 OutlinedTextField(
                     port, { v -> port = v.filter { it.isDigit() }.take(5); port.toIntOrNull()?.takeIf { it in 1024..65535 }?.let { ShareController.setPort(it) } },
