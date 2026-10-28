@@ -41,6 +41,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -82,24 +85,31 @@ private fun App() {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Share") })
+            val nav = NavigationBarItemDefaults.colors(
+                selectedIconColor = MaterialTheme.colorScheme.onPrimary, selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = MaterialTheme.colorScheme.primary,
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
+                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Share") }, colors = nav)
                 NavigationBarItem(tab == 1, { tab = 1 }, {
                     BadgedBox(badge = { if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
-                }, label = { Text("Devices") })
-                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(painterResource(R.drawable.ic_gamepad), null) }, label = { Text("Game") })
-                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") })
-                NavigationBarItem(tab == 4, { tab = 4 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") })
+                }, label = { Text("Devices") }, colors = nav)
+                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(painterResource(R.drawable.ic_gamepad), null) }, label = { Text("Game") }, colors = nav)
+                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") }, colors = nav)
+                NavigationBarItem(tab == 4, { tab = 4 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") }, colors = nav)
             }
         },
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            when (tab) {
-                0 -> HomeScreen(st) { browser = "" }
-                1 -> DevicesScreen(st)
-                2 -> GameScreen(st) { browser = it }
-                3 -> ActivityScreen(st)
-                else -> SettingsScreen(st)
+            Crossfade(tab, animationSpec = tween(220), label = "tab") { t ->
+                when (t) {
+                    0 -> HomeScreen(st) { browser = "" }
+                    1 -> DevicesScreen(st)
+                    2 -> GameScreen(st) { browser = it }
+                    3 -> ActivityScreen(st)
+                    else -> SettingsScreen(st)
+                }
             }
         }
     }

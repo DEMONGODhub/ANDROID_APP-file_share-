@@ -103,7 +103,7 @@ fun GameScreen(st: UiState, open: (String) -> Unit) {
             )
         }
         items(players, key = { it.id }) { p ->
-            SectionCard {
+            SectionCard(Modifier.animateItem()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(p.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)

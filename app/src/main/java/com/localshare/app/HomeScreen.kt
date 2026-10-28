@@ -9,6 +9,11 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -103,8 +109,16 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Text("LocalShare", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-            Text("Share folders with devices on your Wi-Fi or hotspot", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(54.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp))
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text("LocalShare", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+                    Text("Share folders with devices on your Wi-Fi or hotspot", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
         item { StatusCard(st, showQr, { showQr = !showQr }, ::start, { ShareService.stop(ctx) }, { u -> clip.setText(AnnotatedString(u)) }) }
         item { FoldersCard(st, { picker.launch(null) }) }
@@ -145,12 +159,13 @@ private fun StatusCard(
 ) {
     val ctx = LocalContext.current
     val c = MaterialTheme.colorScheme
-    val brush = if (st.running) Brush.linearGradient(listOf(c.primaryContainer, c.secondary)) else Brush.linearGradient(listOf(c.surfaceVariant, c.surfaceVariant))
-    val fg = if (st.running) c.onPrimaryContainer else c.onSurface
-    Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(brush).padding(22.dp)) {
+    val brush = if (st.running) Brush.linearGradient(listOf(c.primary, c.secondary)) else Brush.verticalGradient(listOf(c.surfaceContainerHigh, c.surfaceContainer))
+    val fg = if (st.running) c.onPrimary else c.onSurface
+    val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(0.3f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
+    Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(brush).padding(24.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(if (st.running) fg else c.onSurfaceVariant))
+                Box(Modifier.size(12.dp).clip(CircleShape).background(if (st.running) fg.copy(alpha = pulse) else c.onSurfaceVariant))
                 Spacer(Modifier.width(8.dp))
                 Text(if (st.running) "Sharing is ON" else "Sharing is OFF", color = fg, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
@@ -183,8 +198,8 @@ private fun StatusCard(
             Button(
                 onClick = { if (st.running) onStop() else onStart() },
                 enabled = st.running || st.folders.isNotEmpty() || st.gameOnly,
-                colors = if (st.running) ButtonDefaults.buttonColors(containerColor = c.background, contentColor = c.onBackground) else ButtonDefaults.buttonColors(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = if (st.running) ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = c.primary) else ButtonDefaults.buttonColors(),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
             ) { Text(if (st.running) "Stop sharing" else "Start sharing", fontWeight = FontWeight.Bold) }
         }
     }

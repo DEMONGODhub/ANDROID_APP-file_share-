@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,11 +32,13 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 
 @Composable
 fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val c = MaterialTheme.colorScheme
     Card(
         modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-    ) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = c.surfaceContainer),
+        border = BorderStroke(1.dp, Brush.verticalGradient(listOf(c.primary.copy(alpha = 0.38f), c.outline))),
+    ) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content) }
 }
 
 /** A QR code drawn on white so it scans in dark mode too. */
