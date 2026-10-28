@@ -196,31 +196,43 @@ function toggleHost(v){
   document.querySelectorAll("#hp .seg button").forEach(b=>b.classList.toggle("sel",+b.dataset.m===G.mode));
 }
 $("#ghost").onclick=()=>toggleHost();
+const PWR=[["speed","b1","Speed"],["rapid","b2","Rapid"],["power","b3","Power"],["shield","b4","Shield"],["invincible","b5","Invincible"]];
+function pwrRow(box,id){box.innerHTML=PWR.map(p=>`<button class="pw" data-p="${p[0]}" aria-label="Give ${p[2]}"><img alt="" src="${avSrc(p[1])}"><span>${p[2]}</span></button>`).join("");
+  box.querySelectorAll(".pw").forEach(b=>b.onclick=async()=>{b.classList.add("sent");try{navigator.vibrate&&navigator.vibrate(18)}catch(e){}await give(id,b.dataset.p);setTimeout(()=>b.classList.remove("sent"),650)})}
+async function give(id,power){
+  const r=await J("/api/power",{method:"POST",body:new URLSearchParams({id,power})});
+  hpNote(r.ok?"Given to "+(id==="all"?r.d.n+(r.d.n===1?" player":" players"):((G.rost.get(id)||{}).name||"player")):(r.status===400?"Nobody to give it to yet":(r.d.error||"Could not give it")));
+}
+function hpNote(s){const n=$("#hpn");n.innerHTML="<span></span>";n.firstChild.textContent=s;n.classList.add("on");clearTimeout(G.hpnT);G.hpnT=setTimeout(()=>n.classList.remove("on"),1800)}
+G.rost=new Map();G.rsig="";
 async function loadRoster(){
   if(!G.hostOpen)return;const r=await J("/api/players");
-  if(r.ok){const sel=$("#hpt2"),cur=sel.value;sel.innerHTML='<option value="all">Everyone</option>';
-    G.rost.clear();for(const p of r.d){G.rost.set(p.id,p);const o=document.createElement("option");o.value=p.id;o.textContent=p.name+(p.spec?" (spectator)":p.dead?" (out)":"");sel.appendChild(o)}
-    if([...sel.options].some(o=>o.value===cur))sel.value=cur;paintSpec()}
+  if(r.ok){G.rost.clear();for(const p of r.d)G.rost.set(p.id,p);
+    const sig=r.d.map(p=>p.id+"|"+p.name+"|"+p.spec+"|"+p.dead+"|"+p.av+"|"+(p.id===G.me)).join(",");
+    if(sig!==G.rsig){G.rsig=sig;const L=$("#hpl");L.innerHTML="";
+      if(!r.d.length)L.innerHTML='<p class="hempty">Nobody has joined yet.</p>';
+      for(const p of r.d){const d=document.createElement("div");d.className="hpr"+(p.spec?" isp":"");d.dataset.id=p.id;
+        d.innerHTML='<div class="top"><img alt=""><div class="nm"><b></b><small></small></div><button class="hsp"></button></div><div class="pwr"></div>';
+        d.querySelector("img").src=avSrc(p.av,p.id);d.querySelector("b").textContent=p.name+(p.id===G.me?" (you)":"");
+        d.querySelector("small").textContent=p.spec?"Spectating":p.dead?"Out":p.score+" pumpkins · "+p.hp+" HP";
+        const sp=d.querySelector(".hsp");sp.textContent=p.spec?"Let play":"Spectator";sp.onclick=async()=>{await setSpec(p.id,!p.spec);G.rsig="";loadRoster()};
+        pwrRow(d.querySelector(".pwr"),p.id);L.appendChild(d)}}
+    paintSpec()}
   clearTimeout(G.rosterT);G.rosterT=setTimeout(loadRoster,2500);
 }
 document.querySelectorAll("#hp .seg button").forEach(b=>b.onclick=async()=>{
   const r=await J("/api/gamemode",{method:"POST",body:new URLSearchParams({mode:b.dataset.m})});
-  $("#hpn").textContent=r.ok?(b.dataset.m==="1"?"Battle Royale: rounds start by themselves":"PvP: fight and respawn"):(r.d.error||"Could not change the mode");
+  hpNote(r.ok?(b.dataset.m==="1"?"Battle Royale: rounds start by themselves":"PvP: fight and respawn"):(r.d.error||"Could not change the mode"));
   if(r.ok)document.querySelectorAll("#hp .seg button").forEach(x=>x.classList.toggle("sel",x===b));
 });
-G.rost=new Map();
 async function setSpec(id,on){
   const r=await J("/api/spectate",{method:"POST",body:new URLSearchParams({id,on:on?"1":"0"})});
-  $("#hpn").textContent=r.ok?(on?"Now a spectator":"Back in the game"):(r.d.error||"Could not change that");return r.ok;
+  hpNote(r.ok?(on?"Now a spectator":"Back in the game"):(r.d.error||"Could not change that"));return r.ok;
 }
-$("#hpob").onclick=()=>setSpec(G.me,!G.spec());
-$("#hpsp").onclick=async()=>{const id=$("#hpt2").value;if(id==="all"){$("#hpn").textContent="Pick one player first";return}const p=G.rost.get(id);await setSpec(id,!(p&&p.spec));loadRoster()};
-$("#hpt2").onchange=()=>paintSpec();
-function paintSpec(){const id=$("#hpt2").value,p=G.rost.get(id);$("#hpsp").firstChild.textContent=p&&p.spec?"Let selected play":"Make selected a spectator";$("#hpsp").disabled=id==="all";$("#hpob").firstChild.textContent=G.spec()?"Stop observing":"Observe the match"}
-document.querySelectorAll("#hp .pws button[data-p]").forEach(b=>b.onclick=async()=>{
-  const r=await J("/api/power",{method:"POST",body:new URLSearchParams({id:$("#hpt2").value,power:b.dataset.p})});
-  $("#hpn").textContent=r.ok?"Given to "+r.d.n+(r.d.n===1?" player":" players"):(r.status===400?"Nobody to give it to yet":(r.d.error||"Could not give it"));
-});
+$("#hpob").onclick=async()=>{await setSpec(G.me,!G.spec());setTimeout(paintSpec,300)};
+function paintSpec(){$("#hpob").setAttribute("aria-pressed",G.spec()?"true":"false")}
+$("#hpx").onclick=()=>toggleHost(false);
+pwrRow($("#hpe"),"all");
 
 /* ---- drawing ---- */
 let cw=0,ch=0,dpr=1;
@@ -370,10 +382,17 @@ function hud(me){
 }
 cv.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")G.mouse.moved=true},true);
 addEventListener("resize",()=>{if(G.on)resizeCv(true)});
-})();
 
 $("#szi").onclick=()=>{G.sp.z=Math.max(500,G.sp.z/1.3)};$("#szo").onclick=()=>{G.sp.z=Math.min(4800,G.sp.z*1.3)};
 $("#sfo").onclick=()=>{const ids=[...G.pl.keys()];if(!ids.length)return;const i=ids.indexOf(G.sp.follow);G.sp.follow=i+1<ids.length?ids[i+1]:null;if(!G.sp.follow)G.sp.free=false;$("#sfo").textContent=G.sp.follow?"Following "+(G.pl.get(G.sp.follow)||{}).name:"Follow a player"};
 
 document.addEventListener("mouseleave",()=>{G.mouse.out=true});document.addEventListener("mouseenter",()=>{G.mouse.out=false});
 cv.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")G.mouse.out=false},true);
+
+/* swipe the host sheet away: down on a phone held upright, right when it is the side sheet */
+(()=>{const hp=$("#hp");let s=null;
+ hp.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"||hp.scrollTop>2||e.target.closest("button,input"))return;s={x:e.clientX,y:e.clientY,side:getComputedStyle(hp).left!=="0px"&&innerWidth>innerHeight,on:false}});
+ hp.addEventListener("pointermove",e=>{if(!s)return;const dx=e.clientX-s.x,dy=e.clientY-s.y,d=s.side?dx:dy;if(!s.on&&d>10&&Math.abs(s.side?dy:dx)<d)s.on=true;if(s.on){hp.style.transition="none";hp.style.transform=s.side?`translateX(${Math.max(0,dx)}px)`:`translateY(${Math.max(0,dy)}px)`}});
+ const end=e=>{if(!s)return;const d=s.side?e.clientX-s.x:e.clientY-s.y;hp.style.transition="";hp.style.transform="";if(s.on&&d>90)toggleHost(false);s=null};
+ hp.addEventListener("pointerup",end);hp.addEventListener("pointercancel",end)})();
+})();

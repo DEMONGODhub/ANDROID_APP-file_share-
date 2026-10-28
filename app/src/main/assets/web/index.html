@@ -161,13 +161,42 @@ kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-wid
 #dead>div{text-align:center;display:grid;gap:12px;padding:20px}#dead h2{margin:0;font-size:28px}#dead p{margin:0;color:#cfc4ac}
 #gh{position:absolute;left:50%;bottom:max(70px,calc(env(safe-area-inset-bottom) + 56px));transform:translateX(-50%);background:rgba(0,0,0,.45);border-radius:14px;padding:6px 14px;font-size:12.5px;color:#cfc4ac;white-space:nowrap;pointer-events:none;transition:opacity 1s}
 @media (pointer:coarse){#gh{bottom:auto;top:max(110px,calc(env(safe-area-inset-top) + 100px))}}
-#hp{position:absolute;right:max(14px,env(safe-area-inset-right));top:max(60px,calc(env(safe-area-inset-top) + 48px));width:min(300px,86vw);max-height:80%;overflow:auto;background:rgba(20,16,10,.94);border:1px solid #FFE33B;border-radius:18px;padding:14px;display:grid;gap:10px;z-index:3;font-size:14px}
-#hp h4{margin:0;font-size:15px;color:#FFE33B}
-#hp .seg{display:flex;gap:6px}#hp .seg button,#hp .pws button{flex:1;min-height:42px;border-radius:12px;border:1px solid #5a4a2a;background:#1B1B1B;color:#F7F3DC;font-weight:700}
-#hp .seg button.sel{background:#FFE33B;color:#000000;border-color:#FFE33B}
-#hp select{width:100%;min-height:42px;border-radius:12px;border:1px solid #5a4a2a;background:#1B1B1B;color:#F7F3DC;padding:0 10px;font:inherit}
-#hp .pws{display:grid;grid-template-columns:1fr 1fr;gap:6px}#hp .pws button{display:grid;gap:0;padding:6px;font-size:13px}#hp .pws small{font-weight:500;color:#cfc4ac;font-size:11px}
-#hp .note{color:#cfc4ac;font-size:12px;min-height:16px}
+#hp{position:absolute;right:max(12px,env(safe-area-inset-right));top:max(60px,calc(env(safe-area-inset-top) + 48px));bottom:max(12px,env(safe-area-inset-bottom));width:min(380px,92vw);overflow:auto;background:rgba(10,10,10,.96);backdrop-filter:blur(10px);border:1px solid rgba(255,227,59,.45);border-radius:26px;padding:10px 14px 16px;display:flex;flex-direction:column;gap:12px;z-index:5;font-size:14px;box-shadow:0 16px 48px rgba(0,0,0,.7);animation:hpin .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes hpin{from{opacity:0;transform:translateX(24px)}}
+.hpg{display:none;width:44px;height:5px;border-radius:3px;background:#3a3a3a;margin:2px auto 0}
+.hph{display:flex;align-items:center;justify-content:space-between;font-size:18px;color:#FFE33B}
+#hpx{width:40px;height:40px;border-radius:20px;border:0;background:#1B1B1B;color:#F7F3DC;font-size:22px;cursor:pointer}
+#hp h4{margin:0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#A7A27A}
+#hp .seg{display:flex;gap:4px;background:#1B1B1B;border-radius:22px;padding:4px}
+#hp .seg button{flex:1;min-height:44px;border-radius:18px;border:0;background:none;color:#F7F3DC;font-weight:700;font-size:14px;cursor:pointer;transition:background .2s,color .2s}
+#hp .seg button.sel{background:#FFE33B;color:#000}
+.hrow{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;padding:8px 14px;border-radius:20px;border:1px solid #2a2a2a;background:#141414;color:#F7F3DC;text-align:left;cursor:pointer;font:inherit}
+.hrow span{flex:1;display:grid}.hrow small{color:#A7A27A;font-size:12px}
+.sw2{width:46px;height:28px;border-radius:14px;background:#2c2c2c;position:relative;transition:background .2s;flex:none}
+.sw2:after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#A7A27A;transition:transform .2s,background .2s}
+.hrow[aria-pressed=true] .sw2{background:#FFE33B}.hrow[aria-pressed=true] .sw2:after{transform:translateX(18px);background:#000}
+.hcard{display:grid;gap:8px;background:#141414;border:1px solid #2a2a2a;border-radius:20px;padding:12px}
+.pwr{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pw{display:grid;justify-items:center;gap:3px;padding:8px 2px 6px;min-height:64px;border-radius:16px;border:1px solid #2a2a2a;background:#1B1B1B;color:#F7F3DC;font-size:11px;font-weight:700;cursor:pointer;transition:transform .12s,border-color .2s,background .2s}
+.pw img{width:34px;height:34px;border-radius:50%;image-rendering:pixelated}
+.pw:active{transform:scale(.94);border-color:#FFE33B;background:#2a2600}
+#hpl{display:grid;gap:8px}
+.hpr{display:grid;gap:8px;background:#141414;border:1px solid #2a2a2a;border-radius:20px;padding:10px 12px;animation:fade .25s}
+.hpr .top{display:flex;align-items:center;gap:10px}.hpr .top img{width:38px;height:38px;border-radius:50%;background:#222}
+.hpr .nm{flex:1;min-width:0;display:grid}.hpr .nm b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hpr .nm small{color:#A7A27A;font-size:12px}
+.hpr .hsp{min-height:40px;padding:0 14px;border-radius:20px;border:1px solid #FFE33B;background:none;color:#FFE33B;font-weight:700;cursor:pointer}
+.hpr.isp .hsp{background:#FFE33B;color:#000}
+.hpr.isp .pwr{opacity:.4;pointer-events:none}
+.hempty{color:#A7A27A;margin:0;text-align:center;padding:8px}
+#hp .note{position:sticky;top:2px;z-index:4;height:0;overflow:visible;pointer-events:none;margin:0}
+#hp .note span{display:block;width:max-content;max-width:100%;margin:0 auto;background:#FFE33B;color:#000;font-weight:800;font-size:13px;padding:8px 16px;border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,.6);opacity:0;transform:translateY(-8px) scale(.96);transition:opacity .2s,transform .25s cubic-bezier(.2,.8,.2,1)}
+#hp .note.on span{opacity:1;transform:none}
+.hpr .pw{min-height:48px;padding:6px 2px}.hpr .pw span{display:none}.hpr .pw img{width:32px;height:32px}
+.pw.sent{background:#FFE33B;border-color:#FFE33B;pointer-events:none}
+#hp{touch-action:pan-y;overscroll-behavior:contain}.hpg,.hph{touch-action:none}
+@media (orientation:landscape) and (max-height:540px) and (pointer:coarse){#hp{left:auto;right:0;top:0;bottom:0;width:min(56vw,480px);max-height:none;border-radius:26px 0 0 26px;border-right:0;padding:max(10px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) 12px 14px;animation:hpin .28s cubic-bezier(.2,.8,.2,1)}.hpg{display:none}#hp .seg button{min-height:38px}.hrow{min-height:52px}}
+@media (max-width:700px){#hp{left:0;right:0;top:auto;bottom:0;width:100%;max-height:64%;border-radius:28px 28px 0 0;border-bottom:0;animation:hup .3s cubic-bezier(.2,.8,.2,1);padding-bottom:max(16px,env(safe-area-inset-bottom))}.hpg{display:block}}
+@keyframes hup{from{transform:translateY(100%)}}
 .avme{width:40px;height:40px;padding:0;border:0;background:none;display:grid;place-items:center;border-radius:50%}
 .avme img{width:36px;height:36px;display:block}
 #lav{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
@@ -255,11 +284,15 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
   <div id="gh"></div>
   <div class="hud hide" id="gconn">Reconnecting&hellip;</div>
   <div id="hp" class="hide" role="dialog" aria-label="Host controls">
-    <h4>Game mode</h4><div class="seg"><button data-m="0">PvP</button><button data-m="1">Battle Royale</button></div>
-    <h4>Give a super power</h4><select id="hpt2" aria-label="Who gets the power"><option value="all">Everyone</option></select>
-    <div class="pws"><button data-p="speed">Speed Surge<small>fast for 15 s</small></button><button data-p="rapid">Rapid Fire<small>free shots, 15 s</small></button><button data-p="power">Power Shot<small>15 damage, 15 s</small></button><button data-p="shield">Iron Shield<small>150 HP, full heal</small></button><button data-p="invincible">Invincible<small>8 seconds</small></button></div>
-    <h4>Spectators</h4><div class="pws"><button id="hpob">Observe the match<small>leave the arena, see it all, zoom</small></button><button id="hpsp">Make selected a spectator<small>pick a player above</small></button></div>
-    <div class="note" id="hpn">Only you, the host, can give powers.</div>
+    <div class="hpg" aria-hidden="true"></div>
+    <div class="hph"><b>Host controls</b><button id="hpx" aria-label="Close host controls">&times;</button></div>
+    <div class="note" id="hpn" aria-live="polite"></div>
+    <div class="seg" role="group" aria-label="Game mode"><button data-m="0">PvP</button><button data-m="1">Battle Royale</button></div>
+    <button id="hpob" class="hrow" aria-pressed="false"><span><b>Observe the match</b><small>Leave the arena, see everything, zoom</small></span><i class="sw2"></i></button>
+    <div class="hcard"><h4>Everyone</h4><div class="pwr" id="hpe"></div></div>
+    <h4 class="hpl-h">Players</h4>
+    <div id="hpl"><p class="hempty">Nobody has joined yet.</p></div>
+    <p class="hempty">Tap a hero to give that power. The player turns into the hero while it lasts.</p>
   </div>
   <div id="dead" class="hide"><div><h2>Game over</h2><p id="dmsg"></p><button class="btn pri" id="again" style="justify-self:center">Play again</button></div></div>
 </div>
@@ -736,8 +769,8 @@ addEventListener("keydown",e=>{
 });
 
 </script>
-<script src="/static/avatar.js?v=5"></script>
-<script src="/static/arena.js?v=5"></script>
+<script src="/static/avatar.js?v=6"></script>
+<script src="/static/arena.js?v=6"></script>
 <script>boot();</script>
 </body>
 </html>
