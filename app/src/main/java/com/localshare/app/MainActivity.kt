@@ -136,8 +136,8 @@ private fun AppBar(running: Boolean, devices: Int, onSettings: () -> Unit) {
         Modifier.fillMaxWidth().background(c.background).statusBarsPadding().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.primary), contentAlignment = Alignment.Center) {
-            Icon(painterResource(R.drawable.ic_folder), null, tint = c.onPrimary, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.primaryContainer), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_folder), null, tint = c.primary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(10.dp))
         Text("LocalShare", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))

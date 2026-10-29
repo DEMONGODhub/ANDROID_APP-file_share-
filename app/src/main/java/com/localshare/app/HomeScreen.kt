@@ -15,6 +15,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -91,7 +92,6 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
     }
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { perms = readPerms(ctx) }
     var showDonate by remember { mutableStateOf(false) }
-    var showQr by remember { mutableStateOf(false) }
     var tvNote by remember { mutableStateOf<String?>(null) }
     if (showDonate) DonateDialog { showDonate = false }
 
@@ -140,7 +140,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
                 }
             }
         }
-        item { StatusCard(st, showQr, { showQr = !showQr }, ::start, { ShareService.stop(ctx) }, { u -> clip.setText(AnnotatedString(u)) }) }
+        item { StatusCard(st, ::start, { ShareService.stop(ctx) }, { u -> clip.setText(AnnotatedString(u)) }) }
         item { FoldersCard(st, { picker.launch(null) }) }
         item { PermissionsCard(perms) { p -> notif.launch(p) } }
         if (st.running) item {
@@ -174,39 +174,54 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
 
 @Composable
 private fun StatusCard(
-    st: UiState, showQr: Boolean, toggleQr: () -> Unit,
+    st: UiState,
     onStart: () -> Unit, onStop: () -> Unit, onCopy: (String) -> Unit,
 ) {
     val ctx = LocalContext.current
     val c = MaterialTheme.colorScheme
-    val brush = if (st.running) Brush.linearGradient(listOf(c.primary, c.secondary)) else Brush.verticalGradient(listOf(c.surfaceContainerHigh, c.surfaceContainer))
-    val fg = if (st.running) c.onPrimary else c.onSurface
+    var qrFor by remember { mutableStateOf<String?>(null) }
+    val brush = Brush.verticalGradient(listOf(c.surfaceContainerHigh, c.surfaceContainer))
+    val fg = c.onSurface
     val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(0.3f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "dot")
-    Box(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(brush).padding(24.dp)) {
+    Box(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.extraLarge).background(brush)
+            .border(1.dp, if (st.running) c.primary.copy(alpha = 0.55f) else c.outline, MaterialTheme.shapes.extraLarge).padding(22.dp),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(12.dp).clip(CircleShape).background(if (st.running) fg.copy(alpha = pulse) else c.onSurfaceVariant))
+                Box(Modifier.size(12.dp).clip(CircleShape).background(if (st.running) c.primary.copy(alpha = pulse) else c.onSurfaceVariant))
                 Spacer(Modifier.width(8.dp))
                 Text(if (st.running) "Sharing is ON" else "Sharing is OFF", color = fg, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             if (st.running) {
                 if (st.urls.isEmpty()) Text("No network found. Connect to Wi-Fi or turn on your hotspot.", color = fg)
+                Text(
+                    if (st.urls.size > 1) "${st.urls.size} ways to connect (Wi-Fi and hotspot). Use any one." else "Open this address on any device on the same network.",
+                    color = c.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+                )
                 st.urls.forEach { u ->
-                    Surface(color = fg.copy(alpha = .14f), shape = MaterialTheme.shapes.medium) {
-                        Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(u, color = fg, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            TextButton({ onCopy(u) }, colors = ButtonDefaults.textButtonColors(contentColor = fg)) { Text("Copy") }
-                            IconButton({
-                                ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, u), "Share link"))
-                            }) { Icon(Icons.Filled.Share, "Share link", tint = fg) }
+                    Surface(color = c.surfaceContainerHighest, shape = MaterialTheme.shapes.medium) {
+                        Column(Modifier.padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 2.dp)) {
+                            Text(u, color = c.onSurface, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(horizontalArrangement = Arrangement.spacedBy(0.dp), verticalAlignment = Alignment.CenterVertically) {
+                                TextButton({ qrFor = if (qrFor == u) null else u }, colors = ButtonDefaults.textButtonColors(contentColor = c.primary)) {
+                                    Text(if (qrFor == u) "Hide QR" else "QR code")
+                                }
+                                TextButton({ onCopy(u) }, colors = ButtonDefaults.textButtonColors(contentColor = c.primary)) { Text("Copy") }
+                                TextButton(
+                                    { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, u), "Share link")) },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = c.primary),
+                                ) { Text("Share") }
+                            }
                         }
                     }
                 }
-                if (st.urls.isNotEmpty()) {
-                    TextButton(toggleQr, colors = ButtonDefaults.textButtonColors(contentColor = fg)) { Text(if (showQr) "Hide QR code" else "Show QR code to scan") }
-                    if (showQr) QrCode(st.urls.first(), 200.dp, "QR code for ${st.urls.first()}", Modifier.align(Alignment.CenterHorizontally))
+                qrFor?.let { u ->
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        QrCode(u, 200.dp, "QR code for $u")
+                        Text("Scan with the camera to open $u", color = c.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
-                Text("Open this address in a browser on any device on the same network.", color = fg.copy(alpha = .85f), style = MaterialTheme.typography.bodySmall)
             } else {
                 Text(
                     if (st.gameOnly) "Game-only mode is on (change it in the Game tab): guests can play but never see your files."
@@ -218,7 +233,7 @@ private fun StatusCard(
             Button(
                 onClick = { if (st.running) onStop() else onStart() },
                 enabled = st.running || st.folders.isNotEmpty() || st.gameOnly,
-                colors = if (st.running) ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = c.primary) else ButtonDefaults.buttonColors(),
+                colors = if (st.running) ButtonDefaults.buttonColors(containerColor = c.surfaceContainerHighest, contentColor = c.primary) else ButtonDefaults.buttonColors(),
                 modifier = Modifier.fillMaxWidth().height(56.dp),
             ) { Text(if (st.running) "Stop sharing" else "Start sharing", fontWeight = FontWeight.Bold) }
         }
@@ -232,36 +247,23 @@ private fun FoldersCard(st: UiState, onAdd: () -> Unit) {
         Text("Shared folders", fontWeight = FontWeight.SemiBold, modifier = Modifier.semantics { heading() })
         Text("People who join pick which of these to open.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         if (st.folders.isEmpty()) Text("None yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        st.folders.forEach { f ->
+        st.folders.forEachIndexed { i, f ->
             var menu by remember { mutableStateOf(false) }
             val c = MaterialTheme.colorScheme
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // like a video card: a wide "thumbnail", a yellow line along its bottom edge, a small badge in the corner
-                Box(
-                    Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)
-                        .background(Brush.linearGradient(listOf(Color(0xFF2A2500), Color(0xFF0B0B0B)))),
-                ) {
-                    Icon(painterResource(R.drawable.ic_folder), null, tint = c.primary, modifier = Modifier.align(Alignment.Center).size(56.dp))
-                    Box(
-                        Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.8f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) { Text("SHARED", color = c.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall) }
-                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(c.primary))
+            if (i > 0) HorizontalDivider(color = c.outlineVariant)
+            Row(Modifier.fillMaxWidth().heightIn(min = 60.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(c.primaryContainer), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_folder), null, tint = c.primary, modifier = Modifier.size(26.dp))
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(38.dp).clip(CircleShape).background(c.primary), contentAlignment = Alignment.Center) {
-                        Text(f.name.take(1).uppercase(), color = c.onPrimary, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(f.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (st.running) "Visible to guests" else "Ready to share", color = c.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Box {
-                        IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "Options for ${f.name}") }
-                        DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text("Stop sharing") }, { menu = false; removing = f })
-                        }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(f.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (st.running) "Shared folder · visible to guests" else "Shared folder", color = c.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+                Box {
+                    IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "Options for ${f.name}", tint = c.onSurfaceVariant) }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem({ Text("Stop sharing") }, { menu = false; removing = f })
                     }
                 }
             }

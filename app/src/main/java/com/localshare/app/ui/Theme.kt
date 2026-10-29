@@ -12,11 +12,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Same black and yellow palette as assets/web/index.html — change both together to re-skin the whole product.
+// Black and soft gold. The web page uses the same family (assets/web/index.html).
 private val Dark = darkColorScheme(
-    primary = Color(0xFFFFE33B), onPrimary = Color(0xFF000000),
-    primaryContainer = Color(0xFF3A3400), onPrimaryContainer = Color(0xFFFFF3A0),
-    secondary = Color(0xFFFFC400), onSecondary = Color(0xFF000000),
+    primary = Color(0xFFF2C230), onPrimary = Color(0xFF1A1400),
+    primaryContainer = Color(0xFF2A2208), onPrimaryContainer = Color(0xFFF2D77A),
+    secondary = Color(0xFFD9A400), onSecondary = Color(0xFF000000),
     background = Color(0xFF000000), onBackground = Color(0xFFF7F3DC),
     surface = Color(0xFF0A0A0A), onSurface = Color(0xFFF7F3DC),
     surfaceVariant = Color(0xFF1B1B1B), onSurfaceVariant = Color(0xFFA7A27A),
