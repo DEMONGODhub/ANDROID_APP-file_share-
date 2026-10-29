@@ -25,6 +25,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -84,13 +93,16 @@ private fun App() {
     }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = { AppBar(st.running, st.devices.size) { tab = 4 } },
         bottomBar = {
+          Column {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             val nav = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.onPrimary, selectedTextColor = MaterialTheme.colorScheme.primary,
-                indicatorColor = MaterialTheme.colorScheme.primary,
+                selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
+                indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 0.dp) {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                 NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Share") }, colors = nav)
                 NavigationBarItem(tab == 1, { tab = 1 }, {
                     BadgedBox(badge = { if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
@@ -99,9 +111,10 @@ private fun App() {
                 NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") }, colors = nav)
                 NavigationBarItem(tab == 4, { tab = 4 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") }, colors = nav)
             }
+          }
         },
     ) { pad ->
-        Box(Modifier.padding(pad).fillMaxSize()) {
+        Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
             Crossfade(tab, animationSpec = tween(220), label = "tab") { t ->
                 when (t) {
                     0 -> HomeScreen(st) { browser = "" }
@@ -112,6 +125,31 @@ private fun App() {
                 }
             }
         }
+    }
+}
+
+/** YouTube-style top bar: logo tile and name on the left, a LIVE pill and settings on the right. */
+@Composable
+private fun AppBar(running: Boolean, devices: Int, onSettings: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().background(c.background).statusBarsPadding().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.primary), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_folder), null, tint = c.onPrimary, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text("LocalShare", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        Box(
+            Modifier.clip(RoundedCornerShape(50)).background(if (running) c.primary else c.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            Text(
+                if (running) "LIVE · $devices" else "OFF", fontWeight = FontWeight.Bold,
+                color = if (running) c.onPrimary else c.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
+            )
+        }
+        IconButton(onSettings) { Icon(Icons.Filled.Settings, "Settings") }
     }
 }
 

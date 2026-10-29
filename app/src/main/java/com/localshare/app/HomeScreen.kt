@@ -15,6 +15,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.MoreVert
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -103,20 +109,34 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
         }
     }
 
+    val ls = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var chip by remember { mutableStateOf(0) }
     LazyColumn(
         Modifier.fillMaxSize().statusBarsPadding(),
+        state = ls,
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(54.dp).clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(30.dp))
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text("LocalShare", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-                    Text("Share folders with devices on your Wi-Fi or hotspot", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            // YouTube-style chip row: tap one to jump to that part of the page
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("All", "Sharing", "Folders", "Access", "Support").forEachIndexed { i, label ->
+                    FilterChip(
+                        selected = chip == i,
+                        onClick = {
+                            chip = i
+                            scope.launch { ls.animateScrollToItem(if (i == 4) maxOf(0, ls.layoutInfo.totalItemsCount - 1) else i) }
+                        },
+                        label = { Text(label, fontWeight = FontWeight.SemiBold) },
+                        shape = RoundedCornerShape(50),
+                        border = null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        ),
+                    )
                 }
             }
         }
@@ -213,11 +233,37 @@ private fun FoldersCard(st: UiState, onAdd: () -> Unit) {
         Text("People who join pick which of these to open.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         if (st.folders.isEmpty()) Text("None yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         st.folders.forEach { f ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_folder), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(f.name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconButton({ removing = f }) { Icon(Icons.Filled.Close, "Stop sharing ${f.name}") }
+            var menu by remember { mutableStateOf(false) }
+            val c = MaterialTheme.colorScheme
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // like a video card: a wide "thumbnail", a yellow line along its bottom edge, a small badge in the corner
+                Box(
+                    Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)
+                        .background(Brush.linearGradient(listOf(Color(0xFF2A2500), Color(0xFF0B0B0B)))),
+                ) {
+                    Icon(painterResource(R.drawable.ic_folder), null, tint = c.primary, modifier = Modifier.align(Alignment.Center).size(56.dp))
+                    Box(
+                        Modifier.align(Alignment.BottomEnd).padding(8.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.8f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) { Text("SHARED", color = c.onBackground, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall) }
+                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(c.primary))
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(CircleShape).background(c.primary), contentAlignment = Alignment.Center) {
+                        Text(f.name.take(1).uppercase(), color = c.onPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(f.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(if (st.running) "Visible to guests" else "Ready to share", color = c.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Box {
+                        IconButton({ menu = true }) { Icon(Icons.Filled.MoreVert, "Options for ${f.name}") }
+                        DropdownMenu(menu, { menu = false }) {
+                            DropdownMenuItem({ Text("Stop sharing") }, { menu = false; removing = f })
+                        }
+                    }
+                }
             }
         }
         FilledTonalButton(onAdd, Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
