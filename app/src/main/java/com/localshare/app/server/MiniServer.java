@@ -556,8 +556,10 @@ public final class MiniServer {
             }
             fails.remove(r.ip);
             if (device.length() > 0) for (Session s : sessions.values()) if (!s.host && device.equals(s.device)) drop(s);
-            if (name.length() > 0 && nameInUse(name)) {
-                json(out, false, 409, "{\"error\":\"That name is already taken. Please pick another one.\",\"taken\":true}");
+            if (name.length() > 0 && nameInUse(name, r.ip)) {
+                String alt = name;
+                for (int i = 2; i < 100 && nameInUse(alt, r.ip); i++) alt = name + " " + i;
+                json(out, false, 409, "{\"error\":" + Util.q("That name is already taken. Try \"" + alt + "\" or pick another one.") + ",\"taken\":true}");
                 return;
             }
             if (activeCount(null) >= cfg.maxClients) {
@@ -570,7 +572,7 @@ public final class MiniServer {
         }
         if (name.length() == 0) {
             name = host ? "Host" : "Guest " + (100 + rnd.nextInt(900));
-            for (int i = 0; !host && i < 20 && nameInUse(name); i++) name = "Guest " + (100 + rnd.nextInt(900));
+            for (int i = 0; !host && i < 20 && nameInUse(name, r.ip); i++) name = "Guest " + (100 + rnd.nextInt(900));
         }
         if (!host) cfg.log.add("join", name, r.ip, "");
         String token = hex(16);
@@ -581,7 +583,7 @@ public final class MiniServer {
     }
 
     /** True when another signed-in person (or the host) is already using this name; compared without case or extra spaces. */
-    private boolean nameInUse(String name) {
+    private boolean nameInUse(String name, String ip) {
         String n = name.trim().toLowerCase(java.util.Locale.ROOT);
         long now = System.currentTimeMillis();
         for (Session s : sessions.values()) {

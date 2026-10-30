@@ -66,6 +66,7 @@ async function recover(){
     if(!G.on)return;
     if(l.ok){const i=await J("/api/info");if(i.ok)INFO=i.d;AV.sync();gameConnect();return}
     if(l.status===429){G.rt=setTimeout(recover,3000);return}
+    if(l.status===409){gameClose();ME.name="";showLogin(l.d.error||"That name is now used by someone else. Pick another one.");return}
   }
   gameClose();toast("Sharing restarted. Please sign in again.");ME.name="";showLogin("The host restarted sharing. Please sign in again.");
 }

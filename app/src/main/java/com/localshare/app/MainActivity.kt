@@ -91,9 +91,10 @@ private fun App() {
         HostBrowser(st.port, st.hostToken, mode) { browser = null }
         return
     }
+    BackHandler(enabled = tab != 0) { tab = 0 } // Back from any other tab goes to Share first
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { AppBar(st.running, st.devices.size) { tab = 4 } },
+        topBar = { AppBar(st.running, st.devices.size) },
         bottomBar = {
           Column {
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
@@ -130,7 +131,7 @@ private fun App() {
 
 /** YouTube-style top bar: logo tile and name on the left, a LIVE pill and settings on the right. */
 @Composable
-private fun AppBar(running: Boolean, devices: Int, onSettings: () -> Unit) {
+private fun AppBar(running: Boolean, devices: Int) {
     val c = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().background(c.background).statusBarsPadding().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -149,7 +150,7 @@ private fun AppBar(running: Boolean, devices: Int, onSettings: () -> Unit) {
                 color = if (running) c.onPrimary else c.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
             )
         }
-        IconButton(onSettings) { Icon(Icons.Filled.Settings, "Settings") }
+        Spacer(Modifier.width(10.dp))
     }
 }
 

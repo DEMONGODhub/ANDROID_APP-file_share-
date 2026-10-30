@@ -93,6 +93,14 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
     val notif = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { perms = readPerms(ctx) }
     var showDonate by remember { mutableStateOf(false) }
     var tvNote by remember { mutableStateOf<String?>(null) }
+    var confirmStop by remember { mutableStateOf(false) }
+    if (confirmStop) AlertDialog(
+        onDismissRequest = { confirmStop = false },
+        title = { Text("Stop sharing?") },
+        text = { Text("${st.devices.size} connected ${if (st.devices.size == 1) "device" else "devices"} will be disconnected, and any game in progress ends.") },
+        confirmButton = { TextButton({ confirmStop = false; ShareService.stop(ctx) }) { Text("Stop sharing") } },
+        dismissButton = { TextButton({ confirmStop = false }) { Text("Keep sharing") } },
+    )
     if (showDonate) DonateDialog { showDonate = false }
 
     fun start() {
@@ -140,7 +148,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
                 }
             }
         }
-        item { StatusCard(st, ::start, { ShareService.stop(ctx) }, { u -> clip.setText(AnnotatedString(u)) }) }
+        item { StatusCard(st, ::start, { if (st.devices.isEmpty()) ShareService.stop(ctx) else confirmStop = true }, { u -> clip.setText(AnnotatedString(u)); android.widget.Toast.makeText(ctx, "Link copied", android.widget.Toast.LENGTH_SHORT).show() }) }
         item { FoldersCard(st, { picker.launch(null) }) }
         item { PermissionsCard(perms) { p -> notif.launch(p) } }
         if (st.running) item {
