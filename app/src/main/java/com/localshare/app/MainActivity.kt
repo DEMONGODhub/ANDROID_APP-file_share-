@@ -98,7 +98,7 @@ private fun App() {
         castLauncher.launch(mpm.createScreenCaptureIntent())
     }
     joinUrl?.let { u ->
-        HostBrowser(0, "", "", { joinUrl = null }, u)
+        HostBrowser(0, "", "", u) { joinUrl = null }
         return
     }
     val mode = browser
@@ -194,7 +194,7 @@ private fun AppBar(running: Boolean, devices: Int) {
 /** The host sees the same page guests see, signed in automatically from this phone. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> Unit, url: String? = null) {
+private fun HostBrowser(port: Int, token: String, mode: String, url: String? = null, onClose: () -> Unit) {
     var web by remember { mutableStateOf<WebView?>(null) }
     // lets the host page's Upload button and profile picture chooser open Android's file picker
     var pending by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }

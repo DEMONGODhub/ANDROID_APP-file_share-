@@ -57,6 +57,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.localshare.app.ui.QrCode
 import com.localshare.app.ui.SectionCard
+import com.localshare.app.ui.StorageRing
 
 /** Asks Android, with one tap, to stop limiting this app's battery use so sharing survives the screen turning off. */
 @android.annotation.SuppressLint("BatteryLife")
