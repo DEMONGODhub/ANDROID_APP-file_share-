@@ -86,6 +86,20 @@ private fun App() {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var browser by rememberSaveable { mutableStateOf<String?>(null) } // null = closed, "" = files and game, "play" / "obs" = straight into the game
 
+    var joinUrl by rememberSaveable { mutableStateOf<String?>(null) } // another phone's share, opened inside this app
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val castLauncher = androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val d = res.data
+        if (res.resultCode == android.app.Activity.RESULT_OK && d != null) CastService.start(ctx, res.resultCode, d)
+    }
+    val startCast = {
+        val mpm = ctx.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+        castLauncher.launch(mpm.createScreenCaptureIntent())
+    }
+    joinUrl?.let { u ->
+        HostBrowser(0, "", "", { joinUrl = null }, u)
+        return
+    }
     val mode = browser
     if (mode != null && st.running) {
         HostBrowser(st.port, st.hostToken, mode) { browser = null }
@@ -106,7 +120,7 @@ private fun App() {
             NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
                 NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Share") }, colors = nav)
                 NavigationBarItem(tab == 1, { tab = 1 }, {
-                    BadgedBox(badge = { if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
+                    BadgedBox(badge = { if (st.waiting.isNotEmpty()) Badge { Text("${st.waiting.size}") } else if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
                 }, label = { Text("Devices") }, colors = nav)
                 NavigationBarItem(tab == 2, { tab = 2 }, { Icon(painterResource(R.drawable.ic_gamepad), null) }, label = { Text("Game") }, colors = nav)
                 NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") }, colors = nav)
@@ -118,7 +132,10 @@ private fun App() {
         Box(Modifier.padding(pad).consumeWindowInsets(pad).fillMaxSize()) {
             Crossfade(tab, animationSpec = tween(220), label = "tab") { t ->
                 when (t) {
-                    0 -> HomeScreen(st) { browser = "" }
+                    0 -> HomeScreen(st, { browser = "" }, startCast) { l ->
+                        val t = l.trim()
+                        joinUrl = if (t.startsWith("http://") || t.startsWith("https://")) t else "http://$t"
+                    }
                     1 -> DevicesScreen(st)
                     2 -> GameScreen(st) { browser = it }
                     3 -> ActivityScreen(st)
@@ -157,7 +174,7 @@ private fun AppBar(running: Boolean, devices: Int) {
 /** The host sees the same page guests see, signed in automatically from this phone. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> Unit) {
+private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> Unit, url: String? = null) {
     var web by remember { mutableStateOf<WebView?>(null) }
     // lets the host page's Upload button and profile picture chooser open Android's file picker
     var pending by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
@@ -168,9 +185,9 @@ private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> U
     BackHandler { web?.takeIf { it.canGoBack() }?.goBack() ?: onClose() }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClose, Modifier.heightIn(min = 48.dp)) { Text("← Back to host") }
+            TextButton(onClose, Modifier.heightIn(min = 48.dp)) { Text(if (url != null) "← Back" else "← Back to host") }
             Spacer(Modifier.weight(1f))
-            Text("You're the host", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 14.dp))
+            Text(if (url != null) "Guest view" else "You're the host", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(end = 14.dp))
         }
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -189,7 +206,7 @@ private fun HostBrowser(port: Int, token: String, mode: String, onClose: () -> U
                         }
                     }
                     setDownloadListener { url, agent, disposition, mime, _ -> download(ctx, url, agent, disposition, mime) }
-                    loadUrl("http://127.0.0.1:$port/#ht=$token" + if (mode.isEmpty()) "" else "&g=$mode")
+                    loadUrl(url ?: ("http://127.0.0.1:$port/#ht=$token" + if (mode.isEmpty()) "" else "&g=$mode"))
                     web = this
                 }
             },

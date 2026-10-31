@@ -36,6 +36,8 @@ public final class ServerConfig {
     public volatile boolean gameOnly = false;
     /** 0 = PvP (endless, respawn), 1 = Battle Royale (rounds, shrinking zone). */
     public volatile int gameMode = 0;
+    /** New devices wait for the host (or a manager) to approve them before they can see anything. */
+    public volatile boolean askToJoin = false;
 
     /** Switches the game mode live; the app saves it through {@link #onChange}. */
     public void setGameMode(int m) {
@@ -47,7 +49,8 @@ public final class ServerConfig {
     }
 
     /** Per-device extras the host can grant (or restrict) from the Devices tab. */
-    public static final int P_DELETE = 1, P_RENAME = 2, P_EDIT = 4, P_GAME_ONLY = 8, P_UPLOAD = 16, P_MOVE = 32, P_ALL = 63;
+    public static final int P_DELETE = 1, P_RENAME = 2, P_EDIT = 4, P_GAME_ONLY = 8, P_UPLOAD = 16, P_MOVE = 32, P_ALL = 63,
+            P_MANAGER = 64 /* shares the host's authority */, P_TRUSTED = 128 /* already approved to join */;
     private final ConcurrentHashMap<String, Integer> perms = new ConcurrentHashMap<String, Integer>();
 
     /** Key a device keeps across sign-ins: its browser id, or its IP address when it has none. */
@@ -61,7 +64,7 @@ public final class ServerConfig {
     }
 
     public void setPerms(String key, int v) {
-        v &= P_ALL;
+        v &= 255; // file rights plus the manager and already-approved bits
         if (v == 0) perms.remove(key); else perms.put(key, v);
         changed();
     }
@@ -72,7 +75,7 @@ public final class ServerConfig {
 
     public void loadPerms(java.util.Map<String, Integer> m) {
         perms.clear();
-        for (java.util.Map.Entry<String, Integer> e : m.entrySet()) if ((e.getValue() & P_ALL) != 0) perms.put(e.getKey(), e.getValue() & P_ALL);
+        for (java.util.Map.Entry<String, Integer> e : m.entrySet()) if ((e.getValue() & 255) != 0) perms.put(e.getKey(), e.getValue() & 255);
     }
     /** Guests sign in again this long after joining; 0 means never. */
     public volatile long sessionMs = 6L * 3600000L;

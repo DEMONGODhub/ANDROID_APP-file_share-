@@ -16,7 +16,9 @@ import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.Collections
 
-data class Device(val id: String, val name: String, val ip: String, val since: Long, val perms: Int = 0)
+data class Device(val id: String, val name: String, val ip: String, val since: Long, val perms: Int = 0) {
+    val manager get() = perms and 64 != 0
+}
 data class SharedFolder(val uri: String, val name: String)
 data class BlockedDevice(val id: String, val name: String, val ip: String)
 data class LogLine(val time: Long, val kind: String, val who: String, val detail: String)
@@ -28,6 +30,11 @@ data class UiState(
     val hostToken: String = "",
     val folders: List<SharedFolder> = emptyList(),
     val devices: List<Device> = emptyList(),
+    /** Devices waiting for the host to let them in. */
+    val waiting: List<Device> = emptyList(),
+    val askToJoin: Boolean = false,
+    val casting: Boolean = false,
+    val viewers: Int = 0,
     val blocks: List<BlockedDevice> = emptyList(),
     val log: List<LogLine> = emptyList(),
     val password: String = "",
@@ -70,6 +77,7 @@ object ShareController {
         cfg.allowUploads = prefs.allowUploads
         cfg.allowDelete = prefs.allowDelete
         cfg.gameOnly = prefs.gameOnly
+        cfg.askToJoin = prefs.askToJoin
         cfg.gameMode = prefs.gameMode
         cfg.gameEnabled = prefs.gameEnabled || prefs.gameOnly
         cfg.loadPerms(prefs.loadPerms())
@@ -86,6 +94,12 @@ object ShareController {
     /** Game-only hosting needs no folders: guests only ever see the game. */
     fun setGameOnly(v: Boolean) { prefs.gameOnly = v; cfg.gameOnly = v; cfg.gameEnabled = prefs.gameEnabled || v; refresh() }
     fun setGameMode(m: Int) { cfg.setGameMode(m) }
+    fun setAskToJoin(v: Boolean) { prefs.askToJoin = v; cfg.askToJoin = v; refresh() }
+    /** The host (or a manager) lets a waiting device in, or turns it away. */
+    fun approve(id: String, allow: Boolean): Boolean { val ok = server?.approve(id, allow) ?: true; refresh(); return ok }
+    fun setManager(id: String, on: Boolean) { server?.setManager(id, on); refresh() }
+    fun streamHub() = server?.stream()
+    fun setOnStopStream(r: () -> Unit) { server?.setOnStopStream(Runnable(r)) }
     fun setDevicePerms(id: String, perms: Int) { server?.setPerms(id, perms); refresh() }
     fun setPort(v: Int) { prefs.port = v; refresh() }
     fun setUploads(v: Boolean) { prefs.allowUploads = v; cfg.allowUploads = v; refresh() }
@@ -158,6 +172,7 @@ object ShareController {
 
     @Synchronized
     fun stop() {
+        CastService.stop(app)
         server?.stop()
         server = null
         main.removeCallbacks(ticker)
@@ -175,7 +190,11 @@ object ShareController {
             urls = ips.map { "http://$it:${s?.port()}" },
             hostToken = s?.hostToken() ?: "",
             folders = prefs.folders.map { SharedFolder(it, folderName(it)) },
-            devices = s?.sessions()?.map { Device(it.id, it.name, it.ip, it.since, it.perms) } ?: emptyList(),
+            devices = s?.sessions()?.filter { !it.pending }?.map { Device(it.id, it.name, it.ip, it.since, it.perms) } ?: emptyList(),
+            waiting = s?.sessions()?.filter { it.pending }?.map { Device(it.id, it.name, it.ip, it.since, it.perms) } ?: emptyList(),
+            askToJoin = cfg.askToJoin,
+            casting = CastService.active && s != null,
+            viewers = s?.stream()?.viewers() ?: 0,
             blocks = cfg.blocks().map { BlockedDevice(it.id, it.name, it.ip) },
             log = if (s != null) cfg.log.recent().take(100).map { LogLine(it.time, it.kind, it.who, it.detail) } else emptyList(),
             password = cfg.password,

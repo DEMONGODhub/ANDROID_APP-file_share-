@@ -40,9 +40,12 @@ public final class MiniServer {
         public final String id, name, ip;
         public final long since, lastSeen;
         public final int perms;
+        public final boolean pending, manager;
 
         SessionInfo(Session s, int perms) {
             this.perms = perms;
+            pending = s.pending;
+            manager = (perms & ServerConfig.P_MANAGER) != 0;
             id = s.id;
             name = s.name;
             ip = s.ip;
@@ -54,6 +57,7 @@ public final class MiniServer {
     private static final class Session {
         final String token, id, name, ip, device;
         final boolean host;
+        volatile boolean pending;
         final long since = System.currentTimeMillis();
         volatile long lastSeen = since;
         volatile String avKey = "";
@@ -122,6 +126,8 @@ public final class MiniServer {
     private ServerSocket ss;
     private ThreadPoolExecutor pool;
     private GameHub game;
+    private final StreamHub stream = new StreamHub();
+    private volatile Runnable onStopStream;
     private volatile boolean running;
     private int port;
 
@@ -160,6 +166,7 @@ public final class MiniServer {
             if (ss != null) ss.close();
         } catch (IOException ignored) {
         }
+        stream.stop();
         if (game != null) game.shutdown();
         if (pool != null) pool.shutdownNow();
         sessions.clear();
@@ -412,7 +419,7 @@ public final class MiniServer {
     private int activeCount(Session except) {
         long now = System.currentTimeMillis();
         int n = 0;
-        for (Session s : sessions.values()) if (!s.host && s != except && now - s.lastSeen < ACTIVE_MS) n++;
+        for (Session s : sessions.values()) if (!s.host && !s.pending && s != except && now - s.lastSeen < ACTIVE_MS) n++;
         return n;
     }
 
@@ -420,29 +427,39 @@ public final class MiniServer {
         return s == null || s.host ? 0 : cfg.perms(ServerConfig.permKey(s.device, s.ip));
     }
 
+    /** The host, or someone the host made a manager. */
+    private boolean adm(Session s) {
+        return s != null && s.host;
+    }
+
+    /** The host, or a manager: someone the host trusts to run the game (modes, powers, spectators). */
+    private boolean mgr(Session s) {
+        return s != null && (s.host || (permsOf(s) & ServerConfig.P_MANAGER) != 0);
+    }
+
     /** True when this guest may only play the game: the whole phone is in game-only mode, or this device was set to it. */
     private boolean gameOnly(Session s) {
-        return s != null && !s.host && (cfg.gameOnly || (permsOf(s) & ServerConfig.P_GAME_ONLY) != 0);
+        return s != null && !adm(s) && (cfg.gameOnly || (permsOf(s) & ServerConfig.P_GAME_ONLY) != 0);
     }
 
     private boolean canUpload(Session s) {
-        return s != null && (s.host || (!gameOnly(s) && (cfg.allowUploads || (permsOf(s) & ServerConfig.P_UPLOAD) != 0)));
+        return s != null && (adm(s) || (!gameOnly(s) && (cfg.allowUploads || (permsOf(s) & ServerConfig.P_UPLOAD) != 0)));
     }
 
     private boolean canDelete(Session s) {
-        return s != null && (s.host || (!gameOnly(s) && (cfg.allowDelete || (permsOf(s) & ServerConfig.P_DELETE) != 0)));
+        return s != null && (adm(s) || (!gameOnly(s) && (cfg.allowDelete || (permsOf(s) & ServerConfig.P_DELETE) != 0)));
     }
 
     private boolean canRename(Session s) {
-        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_RENAME) != 0));
+        return s != null && (adm(s) || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_RENAME) != 0));
     }
 
     private boolean canMove(Session s) {
-        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_MOVE) != 0));
+        return s != null && (adm(s) || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_MOVE) != 0));
     }
 
     private boolean canEdit(Session s) {
-        return s != null && (s.host || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_EDIT) != 0));
+        return s != null && (adm(s) || (!gameOnly(s) && (permsOf(s) & ServerConfig.P_EDIT) != 0));
     }
 
     /** Like auth, but also refuses guests who may only play the game. */
@@ -470,6 +487,11 @@ public final class MiniServer {
         Session s = sessionOf(r);
         if (s == null) {
             json(out, isHead, 401, err("auth"));
+            return null;
+        }
+        if (s.pending) {
+            s.lastSeen = System.currentTimeMillis();
+            json(out, isHead, 403, "{\"error\":\"Waiting for the host to let you in\",\"pending\":true}");
             return null;
         }
         if (!s.host) {
@@ -574,11 +596,22 @@ public final class MiniServer {
             name = host ? "Host" : "Guest " + (100 + rnd.nextInt(900));
             for (int i = 0; !host && i < 20 && nameInUse(name, r.ip); i++) name = "Guest " + (100 + rnd.nextInt(900));
         }
-        if (!host) cfg.log.add("join", name, r.ip, "");
+        boolean pend = false;
+        if (!host && cfg.askToJoin && (cfg.perms(ServerConfig.permKey(device, r.ip)) & (ServerConfig.P_TRUSTED | ServerConfig.P_MANAGER)) == 0) {
+            int waiting = 0;
+            for (Session w : sessions.values()) if (w.pending && now - w.lastSeen < ACTIVE_MS) waiting++;
+            if (waiting >= 10) {
+                json(out, false, 429, err("Too many people are waiting for the host. Try again in a minute."));
+                return;
+            }
+            pend = true;
+        }
+        if (!host) cfg.log.add(pend ? "request" : "join", name, r.ip, "");
         String token = hex(16);
         Session s = new Session(token, hex(4), name, r.ip, device, host);
+        s.pending = pend;
         sessions.put(token, s);
-        json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + ",\"host\":" + host + "}",
+        json(out, false, 200, "{\"ok\":true,\"name\":" + Util.q(name) + ",\"host\":" + host + ",\"pending\":" + pend + "}",
                 "Set-Cookie: ls_token=" + token + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400");
     }
 
@@ -611,8 +644,9 @@ public final class MiniServer {
         }
         if (get && path.equals("/api/info")) {
             Session s = sessionOf(r);
+            if (s != null && s.pending) s.lastSeen = System.currentTimeMillis();
             json(out, isHead, 200, "{\"needPassword\":" + (cfg.password.length() > 0) + ",\"gameMode\":" + cfg.gameMode + ",\"gameEnabled\":" + (cfg.gameEnabled || gameOnly(s))
-                    + ",\"max\":" + cfg.maxClients + ",\"active\":" + activeCount(null) + ",\"authed\":" + (s != null)
+                    + ",\"max\":" + cfg.maxClients + ",\"active\":" + activeCount(null) + ",\"authed\":" + (s != null) + ",\"pending\":" + (s != null && s.pending) + ",\"manager\":" + (mgr(s) && !s.host) + ",\"live\":" + (stream.isLive() && s != null && !s.pending && !gameOnly(s))
                     + ",\"name\":" + Util.q(s == null ? "" : s.name) + ",\"host\":" + (s != null && s.host)
                     + ",\"canUpload\":" + canUpload(s) + ",\"canDelete\":" + canDelete(s) + ",\"canRename\":" + canRename(s)
                     + ",\"canMove\":" + canMove(s) + ",\"canEdit\":" + canEdit(s) + ",\"gameOnly\":" + gameOnly(s) + ",\"maxUpload\":" + cfg.maxUploadBytes + "}");
@@ -632,7 +666,7 @@ public final class MiniServer {
             Session s = auth(r, out, isHead);
             if (s == null) return true;
             json(out, isHead, 200, "{\"ok\":true,\"up\":" + canUpload(s) + ",\"del\":" + canDelete(s) + ",\"ren\":" + canRename(s)
-                    + ",\"mov\":" + canMove(s) + ",\"edt\":" + canEdit(s) + ",\"go\":" + gameOnly(s) + "}");
+                    + ",\"mov\":" + canMove(s) + ",\"edt\":" + canEdit(s) + ",\"go\":" + gameOnly(s) + ",\"live\":" + (stream.isLive() && !gameOnly(s)) + ",\"adm\":" + adm(s) + ",\"mgr\":" + mgr(s) + ",\"req\":" + (adm(s) ? pendingCount() : 0) + "}");
             return true;
         }
         if (get && path.equals("/api/list")) {
@@ -690,7 +724,7 @@ public final class MiniServer {
         if (get && path.equals("/api/players")) {
             Session s = auth(r, out, isHead);
             if (s == null) return true;
-            if (!s.host) {
+            if (!mgr(s)) {
                 json(out, isHead, 403, err("Only the host can see this"));
                 return true;
             }
@@ -700,7 +734,7 @@ public final class MiniServer {
         if (post && path.equals("/api/gamemode")) {
             Session s = auth(r, out, false);
             if (s == null) return true;
-            if (!s.host || !sameOrigin(r)) {
+            if (!mgr(s) || !sameOrigin(r)) {
                 json(out, false, 403, err("Only the host can change the game mode"));
                 return true;
             }
@@ -712,7 +746,7 @@ public final class MiniServer {
         if (post && path.equals("/api/power")) {
             Session s = auth(r, out, false);
             if (s == null) return true;
-            if (!s.host || !sameOrigin(r)) {
+            if (!mgr(s) || !sameOrigin(r)) {
                 json(out, false, 403, err("Only the host can give powers"));
                 return true;
             }
@@ -723,7 +757,7 @@ public final class MiniServer {
         if (post && path.equals("/api/spectate")) {
             Session s = auth(r, out, false);
             if (s == null) return true;
-            if (!s.host || !sameOrigin(r)) {
+            if (!mgr(s) || !sameOrigin(r)) {
                 json(out, false, 403, err("Only the host can make someone a spectator"));
                 return true;
             }
@@ -732,6 +766,38 @@ public final class MiniServer {
             if (ok) cfg.log.add("spectate", "Host", "", on ? "spectator on" : "spectator off");
             json(out, false, ok ? 200 : 404, ok ? "{\"ok\":true}" : err("No such player"));
             return true;
+        }
+        if (get && path.equals("/api/requests")) {
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            if (!adm(s)) { json(out, isHead, 403, err("Only the host can see this")); return true; }
+            json(out, isHead, 200, requestsJson());
+            return true;
+        }
+        if (post && path.equals("/api/approve")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!adm(s) || !sameOrigin(r)) { json(out, false, 403, err("Only the host can let people in")); return true; }
+            boolean ok = approve(r.form.get("id"), !"0".equals(r.form.get("allow")));
+            json(out, false, ok ? 200 : 409, ok ? "{\"ok\":true}" : err("The room is full"));
+            return true;
+        }
+        if (post && path.equals("/api/screen/stop")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!adm(s) || !sameOrigin(r)) { json(out, false, 403, err("Only the host can stop the screen share")); return true; }
+            Runnable cb = onStopStream;
+            if (cb != null) cb.run(); else stream.stop();
+            json(out, false, 200, "{\"ok\":true}");
+            return true;
+        }
+        if (get && path.equals("/api/screen")) {
+            if (authFiles(r, out, false) == null) return true;
+            return streamVideo(out);
+        }
+        if (get && path.equals("/api/screen-audio")) {
+            if (authFiles(r, out, false) == null) return true;
+            return streamAudio(out);
         }
         if (get && path.equals("/ws")) return websocket(r, sock, in, out);
         json(out, isHead, 404, err("not found"));
@@ -1428,6 +1494,116 @@ public final class MiniServer {
         json(out, false, 200, "{\"ok\":true}");
         return true;
     }
+
+    private int pendingCount() {
+        long now = System.currentTimeMillis();
+        int n = 0;
+        for (Session s : sessions.values()) if (s.pending && now - s.lastSeen < ACTIVE_MS) n++;
+        return n;
+    }
+
+    private String requestsJson() {
+        long now = System.currentTimeMillis();
+        StringBuilder sb = new StringBuilder("[");
+        for (Session s : sessions.values()) {
+            if (!s.pending || now - s.lastSeen >= ACTIVE_MS) continue;
+            if (sb.length() > 1) sb.append(',');
+            sb.append("{\"id\":").append(Util.q(s.id)).append(",\"name\":").append(Util.q(s.name)).append(",\"ip\":").append(Util.q(s.ip)).append('}');
+        }
+        return sb.append(']').toString();
+    }
+
+    /** Host or manager lets a waiting device in (or turns it away). False when the room is full. */
+    public boolean approve(String id, boolean allow) {
+        if (id == null) return true;
+        for (Session s : sessions.values()) {
+            if (!s.id.equals(id) || !s.pending) continue;
+            if (!allow) {
+                cfg.log.add("denied", s.name, s.ip, "not let in");
+                drop(s);
+                return true;
+            }
+            if (activeCount(null) >= cfg.maxClients) return false;
+            String key = ServerConfig.permKey(s.device, s.ip);
+            s.pending = false;
+            s.lastSeen = System.currentTimeMillis();
+            cfg.log.add("join", s.name, s.ip, "");
+            cfg.setPerms(key, cfg.perms(key) | ServerConfig.P_TRUSTED);
+        }
+        return true;
+    }
+
+    /** Host-side: share the host's authority with one connected device (or take it back). */
+    public void setManager(String id, boolean on) {
+        for (Session s : sessions.values()) {
+            if (!s.id.equals(id) || s.host) continue;
+            String key = ServerConfig.permKey(s.device, s.ip);
+            int p = cfg.perms(key);
+            cfg.setPerms(key, on ? p | ServerConfig.P_MANAGER | ServerConfig.P_TRUSTED : p & ~ServerConfig.P_MANAGER);
+            cfg.log.add(on ? "manager" : "unmanager", s.name, s.ip, "");
+        }
+    }
+
+    public StreamHub stream() {
+        return stream;
+    }
+
+    /** What the web page's Stop button should do on the phone (stops the capture service). */
+    public void setOnStopStream(Runnable r) {
+        onStopStream = r;
+    }
+
+    private boolean streamVideo(OutputStream out) throws IOException {
+        if (!stream.isLive()) {
+            json(out, false, 404, err("Nobody is sharing a screen right now"));
+            return false;
+        }
+        out.write(("HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace; boundary=lsframe\r\nCache-Control: no-store\r\nPragma: no-cache\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n").getBytes(LATIN1));
+        out.flush();
+        stream.viewerDelta(1);
+        try {
+            long[] last = {-1};
+            while (running && stream.isLive()) {
+                byte[] f = stream.nextFrame(last, 3000);
+                if (f == null) {
+                    if (!stream.isLive()) break;
+                    continue;
+                }
+                out.write(("--lsframe\r\nContent-Type: image/jpeg\r\nContent-Length: " + f.length + "\r\n\r\n").getBytes(LATIN1));
+                out.write(f);
+                out.write(CRLF);
+                out.flush();
+            }
+        } catch (InterruptedException ignored) {
+        } finally {
+            stream.viewerDelta(-1);
+        }
+        return false;
+    }
+
+    private boolean streamAudio(OutputStream out) throws IOException {
+        if (!stream.isLive()) {
+            json(out, false, 404, err("Nobody is sharing a screen right now"));
+            return false;
+        }
+        out.write(("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nCache-Control: no-store\r\nX-Rate: " + stream.audioRate() + "\r\nX-Channels: " + stream.audioChannels()
+                + "\r\nAccess-Control-Expose-Headers: X-Rate, X-Channels\r\nConnection: close\r\n\r\n").getBytes(LATIN1));
+        out.flush();
+        try {
+            long[] cur = {-1};
+            while (running && stream.isLive()) {
+                byte[] c = stream.nextAudio(cur, 3000);
+                if (c == null) continue;
+                if (c.length == 0) break;
+                out.write(c);
+                out.flush();
+            }
+        } catch (InterruptedException ignored) {
+        }
+        return false;
+    }
+
+    private static final byte[] CRLF = {13, 10};
 
     private boolean websocket(Req r, Socket sock, InputStream in, OutputStream out) throws IOException {
         String up = r.h.get("upgrade");

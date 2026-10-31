@@ -25,12 +25,23 @@ import com.localshare.app.ui.SectionCard
 
 @Composable
 fun DevicesScreen(st: UiState) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var confirm by remember { mutableStateOf<Device?>(null) }
     var editing by remember { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Text("Devices", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
             Text("Connected ${st.devices.size} of ${st.maxClients}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (st.waiting.isNotEmpty()) {
+            item { Text("Asking to join", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() }) }
+            items(st.waiting, key = { "w" + it.id }) { d ->
+                DeviceRow(d.name, d.ip + "  ·  waiting for you") {
+                    TextButton({ ShareController.approve(d.id, false) }, Modifier.heightIn(min = 48.dp)) { Text("Deny") }
+                    Button({ if (!ShareController.approve(d.id, true)) android.widget.Toast.makeText(ctx, "The room is full. Raise the device limit in Settings.", android.widget.Toast.LENGTH_LONG).show() }, Modifier.heightIn(min = 48.dp)) { Text("Allow") }
+                }
+            }
+            item { Spacer(Modifier.height(4.dp)); Text("Connected", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() }) }
         }
         if (st.devices.isEmpty()) item {
             Text(if (st.running) "Nobody is connected yet." else "Start sharing to let devices connect.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
@@ -69,6 +80,7 @@ fun DevicesScreen(st: UiState) {
 }
 
 private fun permsNote(p: Int, gameOnlyMode: Boolean): String {
+    if (p and 64 != 0) return "  ·  manager"
     if (gameOnlyMode) return "  ·  game only"
     if (p and 8 != 0) return "  ·  game only"
     val on = listOfNotNull(if (p and 16 != 0) "upload" else null, if (p and 1 != 0) "delete" else null, if (p and 2 != 0) "rename" else null, if (p and 32 != 0) "move" else null, if (p and 4 != 0) "edit" else null)
@@ -98,6 +110,7 @@ private fun DevicePermsDialog(d: Device, st: UiState, onClose: () -> Unit) {
         title = { Text("Settings for ${d.name}") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                PermRow("Manager", "Can run the game for you: modes, super powers and spectators", p and 64 != 0) { ShareController.setManager(d.id, it) }
                 PermRow("Game only", "Can play the game but never see your files", gameOnly, enabled = !st.gameOnly && st.gameEnabled) { set(8, it) }
                 PermRow("Upload files", "Can add files to your shared folders", p and 16 != 0 || (st.allowUploads && !gameOnly), enabled = !gameOnly) { set(16, it) }
                 PermRow("Delete files and folders", "Can delete files and folders", p and 1 != 0 || (st.allowDelete && !gameOnly), enabled = !gameOnly) { set(1, it) }

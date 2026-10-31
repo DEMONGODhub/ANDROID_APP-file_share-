@@ -100,6 +100,7 @@ fun SettingsScreen(st: UiState) {
         item {
             SectionCard {
                 Text("What guests can do", fontWeight = FontWeight.SemiBold)
+                SwitchRow("Ask before anyone joins", "New devices wait until you tap Allow in the Devices tab", st.askToJoin) { ShareController.setAskToJoin(it) }
                 SwitchRow("Upload files", "Guests can add files to a folder", st.allowUploads) { ShareController.setUploads(it) }
                 SwitchRow("Delete files", "Guests can remove files from your phone", st.allowDelete) { ShareController.setDelete(it) }
                 Text("You can always do both from the page opened here.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)

@@ -97,6 +97,7 @@ header{display:flex;align-items:center;gap:6px;padding:8px 10px;padding-top:max(
 table.keys{border-collapse:collapse;width:100%}.keys td{padding:5px 0;vertical-align:top}.keys td:first-child{white-space:nowrap;padding-right:14px}
 kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:600 12.5px ui-monospace,Consolas,monospace}
 .tips{margin:0;padding-left:20px;color:var(--text)}.tips li{margin:4px 0}
+#scr{position:fixed;inset:0;background:#000;z-index:70;display:flex;align-items:center;justify-content:center}#scr.hide{display:none}#scr img{max-width:100%;max-height:100%;object-fit:contain}#scr .t{position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;display:flex;gap:8px}
 #toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);border-radius:22px;padding:11px 20px;z-index:60;max-width:90%;box-shadow:var(--shadow)}
 #ups{position:fixed;left:12px;bottom:12px;width:min(340px,calc(100% - 24px));display:grid;gap:8px;z-index:25}
 .up{background:var(--surface);border:1px solid var(--outline);border-radius:14px;padding:10px 12px;font-size:13.5px;box-shadow:var(--shadow)}
@@ -249,6 +250,7 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
     <select id="sort" aria-label="Sort by"><option value="name">Name</option><option value="date">Newest</option><option value="size">Largest</option><option value="type">Type</option></select>
     <button class="ib" id="vtog" aria-label="Switch grid and list"></button>
     <label id="sw"><span id="sico"></span><input id="q" placeholder="Search" aria-label="Search this folder" autocomplete="off"></label>
+    <button class="btn hide" id="watch">Watch screen</button>
     <button class="btn" id="zipb"></button>
     <button class="btn pri" id="upb"></button>
     <input type="file" id="pick" multiple hidden>
@@ -259,6 +261,8 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
 
 <button id="fab" class="hide" aria-label="Play Orb Arena"></button>
 <div id="ups"></div>
+<div id="scr" class="hide"><img id="scrimg" alt="The host's screen"><div class="t"><button class="btn" id="scrfs">Full screen</button><button class="btn pri" id="scrx">Close</button></div></div>
+<div id="wait" class="center hide"><div class="panel"><div class="logo" id="logo5"></div><h1>Waiting for the host</h1><p>The host has to let you in. Keep this page open.</p><button class="btn" id="wcancel" style="justify-content:center">Cancel</button></div></div>
 <div id="toast" class="hide" role="status"></div>
 <div id="layer"></div>
 
@@ -330,14 +334,14 @@ const P={
 const svg=(p,s=24)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="currentColor" aria-hidden="true"><path d="${p}"/></svg>`;
 const COL={pdf:"#E5584A",zip:"#E8A93B",rar:"#E8A93B","7z":"#E8A93B",apk:"#3DBB8F",doc:"#4C82E8",docx:"#4C82E8",xls:"#3FA56F",xlsx:"#3FA56F",ppt:"#F07F3C",pptx:"#F07F3C"};
 const set=(s,p,z)=>{$(s).innerHTML=svg(p,z)};
-set("#logo1",P.wifi,32);set("#logo3",P.wifi,20);set("#logo4",P.pad,32);set("#logo2",P.x,32);set("#sico",P.search,20);set("#help",P.help);set("#lo",P.out);set("#fab",P.pad,30);set("#vx",P.x);set("#vdl",P.dl);set("#gx",P.x);set("#gfs",P.full);set("#eye",P.eye);
+set("#logo1",P.wifi,32);set("#logo3",P.wifi,20);set("#logo4",P.pad,32);set("#logo5",P.wifi,32);set("#logo2",P.x,32);set("#sico",P.search,20);set("#help",P.help);set("#lo",P.out);set("#fab",P.pad,30);set("#vx",P.x);set("#vdl",P.dl);set("#gx",P.x);set("#gfs",P.full);set("#eye",P.eye);
 $("#zipb").innerHTML=svg(P.zip,20)+"<span>ZIP</span>";$("#upb").innerHTML=svg(P.up,20)+"<span>Upload</span>";
 
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
 const rid=()=>{const a=new Uint8Array(12);if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(a);else a.forEach((_,i)=>a[i]=Math.random()*256);return Array.from(a,b=>b.toString(16).padStart(2,"0")).join("")};
 const DEV=store.get("ls_dev")||(()=>{const d=rid();store.set("ls_dev",d);return d})();
 const reduced=matchMedia("(prefers-reduced-motion:reduce)").matches;
-let ME={name:"",host:false},INFO={},view=store.get("ls_view")||"grid",entries=[],cur="",pinger=0,firstLoad=true;
+let ME={name:"",host:false,mgr:false},INFO={},view=store.get("ls_view")||"grid",entries=[],cur="",pinger=0,firstLoad=true;
 
 async function J(u,opt){
   let r;try{r=await fetch(u,opt)}catch(e){return{ok:false,status:0,d:{error:"Could not reach the host"}}}
@@ -346,9 +350,9 @@ async function J(u,opt){
   else if(r.status===401&&d.error==="auth"&&ME.name){ME.name="";showLogin("Your session ended. Please sign in again.")}
   return{ok:r.ok,status:r.status,d};
 }
-function show(id){for(const s of["login","blocked","app","gonly"])$("#"+s).classList.toggle("hide",s!==id);$("#boot").classList.add("hide");$("#fab").classList.toggle("hide",!(id==="app"&&INFO.gameEnabled))}
+function show(id){for(const s of["login","blocked","app","gonly","wait"])$("#"+s).classList.toggle("hide",s!==id);$("#boot").classList.add("hide");$("#fab").classList.toggle("hide",!(id==="app"&&INFO.gameEnabled))}
 let tt=0;function toast(t){const e=$("#toast");e.textContent=t;e.classList.remove("hide");clearTimeout(tt);tt=setTimeout(()=>e.classList.add("hide"),2800)}
-function stopAll(){clearInterval(pinger);closeViewer();closeMenu();gameClose()}
+function stopAll(){clearInterval(pinger);clearTimeout(wt);closeScr();closeViewer();closeMenu();gameClose()}
 
 /* ---------- sign in ---------- */
 function showLogin(msg){
@@ -372,11 +376,34 @@ async function boot(){
   }
   const r=await J("/api/info");if(!r.ok){$("#boot").textContent="Could not reach the host. Check your Wi-Fi and reload.";return}
   INFO=r.d;if(!INFO.authed)return showLogin();
-  ME={name:INFO.name,host:INFO.host};enter();
+  ME={name:INFO.name,host:INFO.host,mgr:!!INFO.manager};
+  if(INFO.pending)return waitIn();
+  enter();
   if(window.gameAuto&&window.gameOpen)gameOpen();
 }
+/* ---------- waiting for the host to let this device in ---------- */
+let wt=0;
+function waitIn(){
+  show("wait");clearInterval(pinger);clearTimeout(wt);
+  const tick=async()=>{
+    const r=await J("/api/info");if(!r.ok){wt=setTimeout(tick,3000);return}
+    INFO=r.d;
+    if(!INFO.authed){ME.name="";return showLogin("The host did not let you in.")}
+    if(!INFO.pending){return boot()}
+    wt=setTimeout(tick,2000);
+  };
+  wt=setTimeout(tick,1500);
+}
+$("#wcancel").onclick=async()=>{clearTimeout(wt);await J("/api/logout",{method:"POST"});ME.name="";const r=await J("/api/info");INFO=r.d||{};showLogin()};
+/* ---------- watching the host's screen ---------- */
+function openScr(){$("#scrimg").src="/api/screen?"+Date.now();$("#scr").classList.remove("hide")}
+function closeScr(){$("#scrimg").removeAttribute("src");$("#scr").classList.add("hide");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
+$("#watch").onclick=openScr;$("#scrx").onclick=closeScr;
+$("#scrfs").onclick=()=>{const e=$("#scr");if(document.fullscreenElement)document.exitFullscreen();else if(e.requestFullscreen)e.requestFullscreen().catch(()=>toast("Full screen is not available here"))};
+$("#scrimg").onerror=()=>{if(!$("#scr").classList.contains("hide")){closeScr();toast("The host stopped sharing the screen")}};
+function liveBtn(on){$("#watch").classList.toggle("hide",!on);if(!on&&!$("#scr").classList.contains("hide"))closeScr()}
 function enter(){
-  clearInterval(pinger);pinger=setInterval(ping,10000);
+  clearInterval(pinger);pinger=setInterval(ping,10000);liveBtn(!!INFO.live);
   if(window.AV&&AV.sync)AV.sync();
   if(INFO.gameOnly){show("gonly");return}
   show("app");set("#vtog",view==="grid"?P.list:P.grid);
@@ -386,6 +413,7 @@ async function ping(){
   const r=await J("/api/ping");
   if(r.status===429)return showLogin("The room is full right now. Try again soon.");
   if(r.ok&&r.d.go!==!!INFO.gameOnly){location.reload();return}
+  if(r.ok){liveBtn(!!r.d.live);ME.mgr=!!r.d.mgr&&!ME.host}
   if(r.ok&&(r.d.up!==INFO.canUpload||r.d.del!==INFO.canDelete||r.d.ren!==INFO.canRename||r.d.edt!==INFO.canEdit||r.d.mov!==INFO.canMove)){INFO.canUpload=r.d.up;INFO.canDelete=r.d.del;INFO.canRename=r.d.ren;INFO.canEdit=r.d.edt;INFO.canMove=r.d.mov;toolbar()}
 }
 $("#lo").onclick=async()=>{await J("/api/logout",{method:"POST"});ME.name="";const r=await J("/api/info");INFO=r.d||{};showLogin()};

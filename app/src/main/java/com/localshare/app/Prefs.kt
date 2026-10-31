@@ -40,6 +40,11 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("port", 8080)
         set(v) = sp.edit().putInt("port", v).apply()
 
+    /** Ask me before a new device is let in. */
+    var askToJoin: Boolean
+        get() = sp.getBoolean("ask_join", false)
+        set(v) = sp.edit().putBoolean("ask_join", v).apply()
+
     /** Game-only hosting: nobody but the host can see any file. */
     var gameOnly: Boolean
         get() = sp.getBoolean("game_only", false)

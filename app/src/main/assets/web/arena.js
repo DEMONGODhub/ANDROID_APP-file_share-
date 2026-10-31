@@ -28,7 +28,7 @@ function gameOpen(){
   if(G.on)return;G.on=true;$("#game").classList.remove("hide");$("#fab").classList.add("hide");
   const el=$("#game");try{const r=(el.requestFullscreen||el.webkitRequestFullscreen);r&&r.call(el)}catch(e){}
   G.dead=false;$("#dead").classList.add("hide");$("#gconn").classList.add("hide");$("#hp").classList.add("hide");G.hostOpen=false;
-  $("#ghost").hidden=!ME.host;paintSnd();
+  $("#ghost").hidden=!(ME.host||ME.mgr);paintSnd();
   $("#gav").src=AV.mine==="c"?AV.img:avSrc(AV.mine);
   $("#gh").textContent=G.touch?"One stick: the gun points the way you move · hold FIRE to shoot (1 pumpkin a shot) · BOOST dashes":"Move: your mouse (the ball follows the cursor, the gun points at it) or WASD · Fire: click or Space (1 pumpkin a shot) · Boost: Shift · Esc leaves";
   $("#gh").style.opacity=1;setTimeout(()=>{$("#gh").style.opacity=0},7000);
@@ -140,7 +140,7 @@ addEventListener("keydown",e=>{
   if(e.target&&/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
   if("wasd".includes(k)||k.startsWith("Arrow")||k===" "||k==="Shift"){G.keys[k]=true;e.preventDefault()}
   if(k==="Enter"&&G.dead&&G.mode!==1)$("#again").click();
-  if(k==="h"&&ME.host)toggleHost();
+  if(k==="h"&&(ME.host||ME.mgr))toggleHost();
 },true);
 addEventListener("keyup",e=>{if(!G.on)return;delete G.keys[e.key.length===1?e.key.toLowerCase():e.key]});
 cv.addEventListener("wheel",e=>{if(!G.spec())return;e.preventDefault();G.sp.z=Math.max(500,Math.min(4800,G.sp.z*(e.deltaY>0?1.12:1/1.12)))},{passive:false});

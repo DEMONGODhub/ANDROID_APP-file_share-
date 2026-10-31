@@ -159,7 +159,26 @@ public class Harness {
             cfg.setPerms(ServerConfig.permKey("uitest2", "127.0.0.1"), ServerConfig.P_GAME_ONLY);
             cfg.setPerms(ServerConfig.permKey("uitest3", "127.0.0.1"), ServerConfig.P_ALL & ~ServerConfig.P_GAME_ONLY);
             MiniServer s = new MiniServer(cfg, composite(fx[0], fx[1], false, null), assets());
+            cfg.askToJoin = Boolean.getBoolean("ask");
             s.start(18080);
+            if (Boolean.getBoolean("live")) { // pretend the host is sharing a screen: a changing picture
+                final com.localshare.app.server.StreamHub hub = s.stream();
+                hub.start(24000, 2);
+                new Thread(new Runnable() { public void run() {
+                    try {
+                        for (int i = 0; ; i++) {
+                            java.awt.image.BufferedImage im = new java.awt.image.BufferedImage(320, 180, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                            java.awt.Graphics2D g = im.createGraphics();
+                            g.setColor(java.awt.Color.YELLOW); g.fillRect(0, 0, 320, 180);
+                            g.setColor(java.awt.Color.BLACK); g.fillOval(10 + (i * 7) % 280, 70, 30, 30); g.dispose();
+                            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                            javax.imageio.ImageIO.write(im, "jpg", bo);
+                            hub.pushFrame(bo.toByteArray());
+                            Thread.sleep(100);
+                        }
+                    } catch (Exception e) { }
+                } }).start();
+            }
             System.out.println("READY 18080 hostToken=" + s.hostToken());
             Thread.sleep(Long.MAX_VALUE);
         }
@@ -363,6 +382,71 @@ public class Harness {
         check("same name, other case -> 409", req("POST", "/api/login", null, "device=dev-nb&name=%20ZED%20&password=").code == 409);
         check("the same device can sign in again", login("dev-na", "", "Zed") != null);
         check("a different name is fine", login("dev-nb", "", "Zoe") != null);
+        System.out.println("== join approval, managers, screen share");
+        String O = "http://127.0.0.1:" + port;
+        c.askToJoin = true;
+        Res lr = req("POST", "/api/login", null, "device=dev-w1&name=Wren&password=");
+        String w = token(lr);
+        check("with approval on, a new device logs in as pending", lr.code == 200 && lr.text().contains("\"pending\":true"));
+        check("pending device is refused files", req("GET", "/api/list?path=", w, null).code == 403 && req("GET", "/api/list?path=", w, null).text().contains("pending"));
+        check("info tells it to wait", req("GET", "/api/info", w, null).text().contains("\"pending\":true"));
+        check("pending device cannot open the screen", req("GET", "/api/screen", w, null).code == 403);
+        check("guests cannot approve", req("POST", "/api/approve", w, "id=" + sid(s, "Wren") + "&allow=1", "Origin", O).code == 403);
+        check("host sees the request", req("GET", "/api/requests", host, null).text().contains("Wren"));
+        check("host approves", req("POST", "/api/approve", host, "id=" + sid(s, "Wren") + "&allow=1", "Origin", O).code == 200);
+        check("approved device can browse", req("GET", "/api/list?path=", w, null).code == 200);
+        check("approved device skips the queue next time", req("POST", "/api/login", null, "device=dev-w1&name=Wren&password=").text().contains("\"pending\":false"));
+        String w2 = token(req("POST", "/api/login", null, "device=dev-w2&name=Wes&password="));
+        check("host can turn a request away", req("POST", "/api/approve", host, "id=" + sid(s, "Wes") + "&allow=0", "Origin", O).code == 200 && req("GET", "/api/info", w2, null).text().contains("\"authed\":false"));
+        c.askToJoin = false;
+        String m = login("dev-m1", "", "Mia");
+        check("plain guest cannot change game mode or approve", req("POST", "/api/gamemode", m, "mode=1", "Origin", O).code == 403 && req("GET", "/api/requests", m, null).code == 403);
+        check("plain guest cannot make a manager", req("POST", "/api/approve", m, "id=x", "Origin", O).code == 403);
+        s.setManager(sid(s, "Mia"), true);
+        check("manager can change game mode", req("POST", "/api/gamemode", m, "mode=1", "Origin", O).code == 200);
+        req("POST", "/api/gamemode", m, "mode=0", "Origin", O);
+        check("manager runs the game but is not the host", req("GET", "/api/ping", m, null).text().contains("\"mgr\":true") && req("GET", "/api/ping", m, null).text().contains("\"adm\":false") && req("GET", "/api/ping", m, null).text().contains("\"del\":false"));
+        check("manager cannot let people in or stop the screen", req("GET", "/api/requests", m, null).code == 403 && req("POST", "/api/approve", m, "id=x", "Origin", O).code == 403 && req("POST", "/api/screen/stop", m, "", "Origin", O).code == 403);
+        check("manager can list players and give powers", req("GET", "/api/players", m, null).code == 200);
+        s.setPerms(sid(s, "Mia"), ServerConfig.P_RENAME | ServerConfig.P_MANAGER | ServerConfig.P_TRUSTED); // what the Devices screen sends: the other bits are kept
+        check("changing another right keeps the manager role", req("POST", "/api/gamemode", m, "mode=0", "Origin", O).code == 200);
+        check("manager is flagged in info", req("GET", "/api/info", m, null).text().contains("\"manager\":true"));
+        c.askToJoin = true;
+        Res ml = req("POST", "/api/login", null, "device=dev-m1&name=Mia&password=");
+        m = token(ml); // signing in again replaces the old session
+        check("a manager is never held back by approval", ml.text().contains("\"pending\":false"));
+        c.askToJoin = false;
+        s.setManager(sid(s, "Mia"), false);
+        check("manager rights can be taken back", req("POST", "/api/gamemode", m, "mode=1", "Origin", O).code == 403);
+        check("no screen is live at first", req("GET", "/api/screen", m, null).code == 404 && req("GET", "/api/info", m, null).text().contains("\"live\":false"));
+        final com.localshare.app.server.StreamHub hub = s.stream();
+        hub.start(24000, 2);
+        check("info says live once the host shares", req("GET", "/api/info", m, null).text().contains("\"live\":true"));
+        hub.pushFrame(new byte[]{(byte) 0xff, (byte) 0xd8, 1, 2, 3, (byte) 0xff, (byte) 0xd9});
+        hub.pushAudio(new byte[]{1, 2, 3, 4});
+        HttpURLConnection vc = (HttpURLConnection) new URL(O + "/api/screen").openConnection();
+        vc.setRequestProperty("Cookie", "ls_token=" + m);
+        vc.setReadTimeout(5000);
+        check("screen is an MJPEG stream", vc.getResponseCode() == 200 && vc.getContentType().startsWith("multipart/x-mixed-replace"));
+        java.io.InputStream vi = vc.getInputStream();
+        byte[] buf = new byte[300];
+        int got = 0, rd;
+        while (got < 60 && (rd = vi.read(buf, got, buf.length - got)) > 0) got += rd;
+        check("the stream carries the JPEG frame", new String(buf, 0, got, "ISO-8859-1").contains("image/jpeg"));
+        check("viewer count goes up", hub.viewers() == 1);
+        vc.disconnect();
+        HttpURLConnection ac = (HttpURLConnection) new URL(O + "/api/screen-audio").openConnection();
+        ac.setRequestProperty("Cookie", "ls_token=" + m);
+        ac.setReadTimeout(5000);
+        check("audio stream announces its format", ac.getResponseCode() == 200 && "24000".equals(ac.getHeaderField("X-Rate")) && "2".equals(ac.getHeaderField("X-Channels")));
+        byte[] ab = new byte[4];
+        int ar = 0, rr;
+        java.io.InputStream ai = ac.getInputStream();
+        while (ar < 4 && (rr = ai.read(ab, ar, 4 - ar)) > 0) ar += rr;
+        check("audio bytes arrive", ar == 4 && ab[0] == 1 && ab[3] == 4);
+        hub.stop();
+        ac.disconnect();
+        check("stopping ends the live flag", req("GET", "/api/info", m, null).text().contains("\"live\":false"));
         System.out.println("== per-device game only");
         s.setPerms(sid(s, "Pat"), ServerConfig.P_GAME_ONLY | ServerConfig.P_DELETE);
         check("game-only device cannot list -> 403", req("GET", "/api/list?path=", t2, null).code == 403);

@@ -36,6 +36,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
 import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,7 +79,7 @@ private fun readPerms(ctx: android.content.Context): Perms {
 }
 
 @Composable
-fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
+fun HomeScreen(st: UiState, openBrowser: () -> Unit, onCast: () -> Unit, onJoin: (String) -> Unit) {
     val ctx = LocalContext.current
     val clip = LocalClipboardManager.current
     var perms by remember { mutableStateOf(readPerms(ctx)) }
@@ -150,6 +151,8 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit) {
         }
         item { StatusCard(st, ::start, { if (st.devices.isEmpty()) ShareService.stop(ctx) else confirmStop = true }, { u -> clip.setText(AnnotatedString(u)); android.widget.Toast.makeText(ctx, "Link copied", android.widget.Toast.LENGTH_SHORT).show() }) }
         item { FoldersCard(st, { picker.launch(null) }) }
+        item { ScreenCard(st, onCast) }
+        item { JoinCard(onJoin) }
         item { PermissionsCard(perms) { p -> notif.launch(p) } }
         if (st.running) item {
             SectionCard {
@@ -337,5 +340,40 @@ private fun PermRow(title: String, why: String, ok: Boolean, action: String, onC
             Spacer(Modifier.width(8.dp))
             FilledTonalButton(onClick, Modifier.heightIn(min = 48.dp)) { Text(action) }
         }
+    }
+}
+
+/** Share this phone's screen: people you let in get a Watch screen button on the page. */
+@Composable
+private fun ScreenCard(st: UiState, onCast: () -> Unit) {
+    val ctx = LocalContext.current
+    SectionCard {
+        Text("Share your screen", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(
+            when {
+                !st.running -> "Start sharing first, then you can show your screen to the devices that joined."
+                st.casting -> "Your screen is live. ${st.viewers} watching. Everything on your screen is visible, so be careful with passwords and private chats."
+                else -> "Devices that joined see a Watch screen button. They can only watch."
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
+        )
+        if (st.casting) Button({ CastService.stop(ctx) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)) { Text("Stop sharing screen") }
+        else OutlinedButton(onCast, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = st.running) { Text("Start sharing screen") }
+    }
+}
+
+/** Open another phone's LocalShare inside this app: the same page a browser would show. */
+@Composable
+private fun JoinCard(onJoin: (String) -> Unit) {
+    var link by rememberSaveable { mutableStateOf("") }
+    SectionCard {
+        Text("Join another share", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Type the link shown on the other phone (like http://192.168.1.5:8080). You get files, viewers, the game and its screen, just like in a browser.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        OutlinedTextField(
+            link, { link = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Link") },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri, imeAction = androidx.compose.ui.text.input.ImeAction.Go),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = { if (link.isNotBlank()) onJoin(link) }),
+        )
+        Button({ onJoin(link) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = link.isNotBlank()) { Text("Open") }
     }
 }
