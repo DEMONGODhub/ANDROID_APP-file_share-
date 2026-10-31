@@ -7,12 +7,22 @@ public final class StreamHub {
     private byte[] frame;
     private long seq;
     private volatile boolean live;
+    private volatile long startedAt, lastFrameAt;
+    private volatile int fps;
+    private long winStart;
+    private int winCount;
     private volatile int viewers;
     private volatile int audioRate = 24000, audioCh = 2;
     private final ArrayDeque<byte[]> audio = new ArrayDeque<byte[]>();
     private long audioBase; // absolute index of audio.peekFirst()
 
     public boolean isLive() { return live; }
+    /** When the share began (ms since 1970), 0 when nothing is live. */
+    public long startedAt() { return live ? startedAt : 0; }
+    /** Frames per second the phone is producing right now. */
+    public int fps() { return live ? fps : 0; }
+    /** Milliseconds since the newest frame arrived. */
+    public long frameAge() { return lastFrameAt == 0 ? Long.MAX_VALUE : System.currentTimeMillis() - lastFrameAt; }
     public int viewers() { return viewers; }
     public int audioRate() { return audioRate; }
     public int audioChannels() { return audioCh; }
@@ -21,6 +31,8 @@ public final class StreamHub {
         frame = null; seq = 0; audio.clear(); audioBase = 0;
         audioRate = rate; audioCh = channels;
         live = true;
+        startedAt = System.currentTimeMillis();
+        lastFrameAt = 0; fps = 0; winStart = startedAt; winCount = 0;
         notifyAll();
     }
 
@@ -35,6 +47,10 @@ public final class StreamHub {
         if (!live) return;
         frame = jpeg;
         seq++;
+        long now = System.currentTimeMillis();
+        lastFrameAt = now;
+        winCount++;
+        if (now - winStart >= 1000) { fps = (int) Math.round(winCount * 1000.0 / (now - winStart)); winCount = 0; winStart = now; }
         notifyAll();
     }
 

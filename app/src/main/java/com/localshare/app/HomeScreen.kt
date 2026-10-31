@@ -347,6 +347,14 @@ private fun PermRow(title: String, why: String, ok: Boolean, action: String, onC
     }
 }
 
+/** "mm:ss" (or "h:mm:ss") since the share began, ticking every second. */
+@Composable
+private fun liveClock(since: Long): String {
+    val now by produceState(System.currentTimeMillis()) { while (true) { kotlinx.coroutines.delay(1000); value = System.currentTimeMillis() } }
+    val s = if (since > 0) ((now - since) / 1000).coerceAtLeast(0) else 0L
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s % 3600 / 60, s % 60) else "%02d:%02d".format(s / 60, s % 60)
+}
+
 /** Share this phone's screen: people you let in get a Watch screen button on the page. */
 @Composable
 private fun ScreenCard(st: UiState, onCast: () -> Unit) {
@@ -356,7 +364,7 @@ private fun ScreenCard(st: UiState, onCast: () -> Unit) {
         Text(
             when {
                 !st.running -> "Start sharing first, then you can show your screen to the devices that joined."
-                st.casting -> "Your screen is live. ${st.viewers} watching. Everything on your screen is visible, so be careful with passwords and private chats."
+                st.casting -> "Your screen is live for ${liveClock(st.castSince)}. ${st.viewers} watching. Everything on your screen is visible, so be careful with passwords and private chats."
                 else -> "Devices that joined see a Watch screen button. They can only watch."
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,

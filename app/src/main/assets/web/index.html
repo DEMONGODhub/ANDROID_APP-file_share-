@@ -97,7 +97,18 @@ header{display:flex;align-items:center;gap:6px;padding:8px 10px;padding-top:max(
 table.keys{border-collapse:collapse;width:100%}.keys td{padding:5px 0;vertical-align:top}.keys td:first-child{white-space:nowrap;padding-right:14px}
 kbd{background:var(--surface2);border:1px solid var(--outline);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:600 12.5px ui-monospace,Consolas,monospace}
 .tips{margin:0;padding-left:20px;color:var(--text)}.tips li{margin:4px 0}
-#scr{position:fixed;inset:0;background:#000;z-index:70;display:flex;align-items:center;justify-content:center}#scr.hide{display:none}#scr img{max-width:100%;max-height:100%;object-fit:contain}#scr .t{position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;display:flex;gap:8px}
+#scr{position:fixed;inset:0;background:#000;z-index:70;display:flex;align-items:center;justify-content:center}#scr.hide{display:none}#scr #scrv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}#scr #scrv.pan{cursor:grabbing}#scr img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:50% 50%;will-change:transform;user-select:none;-webkit-user-drag:none}
+#scrinfo{position:absolute;left:12px;top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;gap:8px;background:rgba(12,12,13,.72);border:1px solid var(--outline);border-radius:20px;padding:7px 13px;font-size:13px;color:var(--text);pointer-events:none}#scrq{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}#scrq.good{background:#4ADE80}#scrq.fair{background:var(--primary)}#scrq.poor{background:var(--danger)}
+#scr .t .btn{min-width:44px;justify-content:center}@media(max-width:560px){#scr .t{flex-wrap:wrap;justify-content:flex-end;max-width:70%}#scrinfo{max-width:52%;flex-wrap:wrap}}#scr .t{position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;display:flex;gap:8px}
+#chb b{position:absolute;top:2px;right:2px;min-width:17px;height:17px;border-radius:9px;background:var(--primary);color:var(--onprimary);font-size:11px;line-height:17px;text-align:center;padding:0 4px}
+#chat{position:fixed;right:16px;bottom:16px;width:min(360px,calc(100% - 32px));height:min(500px,72vh);background:var(--surface);border:1px solid var(--outline);border-radius:20px;z-index:80;display:flex;flex-direction:column;box-shadow:var(--shadow);overflow:hidden;animation:chin .22s ease-out}
+#chat.hide{display:none}@keyframes chin{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+#chat .ch{display:flex;align-items:center;gap:8px;padding:12px 12px 12px 16px;border-bottom:1px solid var(--outline)}#chat .ch b{font-size:16px}#chwho{flex:1;color:var(--muted);font-size:12px}
+#chl{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain}
+.cm{max-width:86%;align-self:flex-start;background:var(--surface2);border-radius:16px 16px 16px 4px;padding:8px 12px;word-break:break-word;animation:chin .18s ease-out}.cm.me{align-self:flex-end;background:var(--primary);color:var(--onprimary);border-radius:16px 16px 4px 16px}
+.cm small{display:block;font-size:11px;opacity:.75;margin-bottom:2px}.cm small i{font-style:normal;color:var(--primary);font-weight:700}.cm.me small i{color:var(--onprimary)}
+#chf{display:flex;gap:8px;padding:10px;border-top:1px solid var(--outline)}#chi{flex:1;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--outline);border-radius:22px;padding:10px 14px;font:inherit}#chi:focus{outline:2px solid var(--primary)}
+@media(max-width:560px){#chat{left:0;right:0;bottom:0;width:100%;height:68vh;border-radius:20px 20px 0 0}}
 #toast{position:fixed;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--text);color:var(--bg);border-radius:22px;padding:11px 20px;z-index:60;max-width:90%;box-shadow:var(--shadow)}
 #ups{position:fixed;left:12px;bottom:12px;width:min(340px,calc(100% - 24px));display:grid;gap:8px;z-index:25}
 .up{background:var(--surface);border:1px solid var(--outline);border-radius:14px;padding:10px 12px;font-size:13.5px;box-shadow:var(--shadow)}
@@ -241,6 +252,7 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
   <header>
     <button id="brand" aria-label="Home, choose a folder"><i id="logo3"></i><span>LocalShare</span></button>
     <button class="ib avme" id="avb" aria-label="Your picture. Tap to change it."><img alt=""></button>
+    <button class="ib" id="chb" aria-label="Live chat" style="position:relative"></button>
     <button class="ib" id="help" aria-label="Help for this device"></button>
     <button class="ib" id="lo" aria-label="Leave"></button>
   </header>
@@ -261,7 +273,8 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
 
 <button id="fab" class="hide" aria-label="Play Orb Arena"></button>
 <div id="ups"></div>
-<div id="scr" class="hide"><img id="scrimg" alt="The host's screen"><div class="t"><button class="btn" id="scrfs">Full screen</button><button class="btn pri" id="scrx">Close</button></div></div>
+<div id="scr" class="hide"><div id="scrv"><img id="scrimg" alt="The host's screen" draggable="false"></div><div id="scrinfo" aria-live="off"><i id="scrq"></i><span id="scrtxt">Connecting…</span></div><div class="t"><button class="btn" id="scrm" aria-label="Zoom out">−</button><button class="btn" id="scrz" aria-label="Reset zoom">1×</button><button class="btn" id="scrp" aria-label="Zoom in">+</button><button class="btn" id="scrc">Chat</button><button class="btn" id="scrfs">Full screen</button><button class="btn pri" id="scrx">Close</button></div></div>
+<div id="chat" class="hide" role="dialog" aria-label="Live chat"><div class="ch"><b>Live chat</b><span id="chwho"></span><button class="ib" id="chc" hidden aria-label="Clear the chat for everyone">Clear</button><button class="ib" id="chx" aria-label="Close chat"></button></div><div id="chl" aria-live="polite"></div><form id="chf" autocomplete="off"><input id="chi" maxlength="300" placeholder="Message everyone" aria-label="Message"><button class="btn pri">Send</button></form></div>
 <div id="wait" class="center hide"><div class="panel"><div class="logo" id="logo5"></div><h1>Waiting for the host</h1><p>The host has to let you in. Keep this page open.</p><button class="btn" id="wcancel" style="justify-content:center">Cancel</button></div></div>
 <div id="toast" class="hide" role="status"></div>
 <div id="layer"></div>
@@ -305,6 +318,7 @@ header,#bar{transition:box-shadow .3s,background-color .3s}
 "use strict";
 const $=s=>document.querySelector(s);
 const P={
+ chat:"M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z",
  folder:"M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z",
  file:"M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z",
  music:"M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z",
@@ -334,7 +348,7 @@ const P={
 const svg=(p,s=24)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="currentColor" aria-hidden="true"><path d="${p}"/></svg>`;
 const COL={pdf:"#E5584A",zip:"#E8A93B",rar:"#E8A93B","7z":"#E8A93B",apk:"#3DBB8F",doc:"#4C82E8",docx:"#4C82E8",xls:"#3FA56F",xlsx:"#3FA56F",ppt:"#F07F3C",pptx:"#F07F3C"};
 const set=(s,p,z)=>{$(s).innerHTML=svg(p,z)};
-set("#logo1",P.wifi,32);set("#logo3",P.wifi,20);set("#logo4",P.pad,32);set("#logo5",P.wifi,32);set("#logo2",P.x,32);set("#sico",P.search,20);set("#help",P.help);set("#lo",P.out);set("#fab",P.pad,30);set("#vx",P.x);set("#vdl",P.dl);set("#gx",P.x);set("#gfs",P.full);set("#eye",P.eye);
+set("#logo1",P.wifi,32);set("#logo3",P.wifi,20);set("#logo4",P.pad,32);set("#logo5",P.wifi,32);set("#logo2",P.x,32);set("#sico",P.search,20);set("#help",P.help);set("#lo",P.out);set("#chb",P.chat);set("#chx",P.x,20);set("#fab",P.pad,30);set("#vx",P.x);set("#vdl",P.dl);set("#gx",P.x);set("#gfs",P.full);set("#eye",P.eye);
 $("#zipb").innerHTML=svg(P.zip,20)+"<span>ZIP</span>";$("#upb").innerHTML=svg(P.up,20)+"<span>Upload</span>";
 
 const store={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
@@ -352,7 +366,7 @@ async function J(u,opt){
 }
 function show(id){for(const s of["login","blocked","app","gonly","wait"])$("#"+s).classList.toggle("hide",s!==id);$("#boot").classList.add("hide");$("#fab").classList.toggle("hide",!(id==="app"&&INFO.gameEnabled))}
 let tt=0;function toast(t){const e=$("#toast");e.textContent=t;e.classList.remove("hide");clearTimeout(tt);tt=setTimeout(()=>e.classList.add("hide"),2800)}
-function stopAll(){clearInterval(pinger);clearTimeout(wt);closeScr();closeViewer();closeMenu();gameClose()}
+function stopAll(){clearInterval(pinger);chStop();clearTimeout(wt);closeScr();closeViewer();closeMenu();gameClose()}
 
 /* ---------- sign in ---------- */
 function showLogin(msg){
@@ -381,6 +395,37 @@ async function boot(){
   enter();
   if(window.gameAuto&&window.gameOpen)gameOpen();
 }
+/* ---------- live chat ---------- */
+let chLast=0,chTimer=0,chOpen=false,chUnread=0,chFirst=true;
+const chBadge=()=>{let b=$("#chb b");if(!chUnread){if(b)b.remove();return}if(!b){b=document.createElement("b");$("#chb").appendChild(b)}b.textContent=chUnread>9?"9+":chUnread};
+function chAdd(m){
+  const l=$("#chl"),near=l.scrollHeight-l.scrollTop-l.clientHeight<80,d=document.createElement("div"),mine=m.name===ME.name;
+  d.className="cm"+(mine?" me":"");
+  const s=document.createElement("small"),n=document.createElement("i");n.textContent=m.name+(m.host?" · host":m.mgr?" · manager":"");
+  s.appendChild(n);s.appendChild(document.createTextNode("  "+new Date(m.t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})));
+  const t=document.createElement("div");t.textContent=m.text;d.appendChild(s);d.appendChild(t);l.appendChild(d);
+  if(near||mine)l.scrollTop=l.scrollHeight;
+  while(l.children.length>200)l.removeChild(l.firstChild);
+}
+async function chPoll(){
+  const r=await J("/api/chat?after="+chLast);if(!r.ok)return;
+  if(r.d.last<chLast){$("#chl").innerHTML="";chLast=0;return chPoll()} // the host cleared the chat
+  let n=0;for(const m of r.d.msgs){chAdd(m);if(m.name!==ME.name)n++}
+  chLast=r.d.last;
+  if(chFirst)chFirst=false;else if(!chOpen&&n){chUnread+=n;chBadge()}
+  $("#chwho").textContent=r.d.online+" online";
+}
+function chShow(on){chOpen=on;$("#chat").classList.toggle("hide",!on);if(on){chUnread=0;chBadge();const l=$("#chl");l.scrollTop=l.scrollHeight;setTimeout(()=>$("#chi").focus(),60)}}
+function chStart(){chStop();chLast=0;chFirst=true;chUnread=0;chBadge();$("#chl").innerHTML="";$("#chc").hidden=!ME.host;chPoll();chTimer=setInterval(chPoll,2500)}
+function chStop(){clearInterval(chTimer);chShow(false)}
+$("#chb").onclick=()=>chShow(!chOpen);$("#chx").onclick=()=>chShow(false);$("#scrc").onclick=()=>chShow(!chOpen);
+$("#chf").onsubmit=async e=>{
+  e.preventDefault();const i=$("#chi"),v=i.value.trim();if(!v)return;
+  const r=await J("/api/chat",{method:"POST",body:new URLSearchParams({text:v})});
+  if(r.ok){i.value="";chPoll()}else toast(r.status===429?"Slow down a little":(r.d.error||"Could not send"));
+};
+$("#chc").onclick=async()=>{if(!confirm("Clear the chat for everyone?"))return;const r=await J("/api/chat/clear",{method:"POST"});if(r.ok){$("#chl").innerHTML="";chLast=0;chPoll()}};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&chOpen)chShow(false)});
 /* ---------- waiting for the host to let this device in ---------- */
 let wt=0;
 function waitIn(){
@@ -396,8 +441,49 @@ function waitIn(){
 }
 $("#wcancel").onclick=async()=>{clearTimeout(wt);await J("/api/logout",{method:"POST"});ME.name="";const r=await J("/api/info");INFO=r.d||{};showLogin()};
 /* ---------- watching the host's screen ---------- */
-function openScr(){$("#scrimg").src="/api/screen?"+Date.now();$("#scr").classList.remove("hide")}
-function closeScr(){$("#scrimg").removeAttribute("src");$("#scr").classList.add("hide");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
+let Z={z:1,x:0,y:0},zst=0,zpt=0,zbase=0,zt0=0,zrtt=0,zfps=0,zage=0,zlive=true;
+const scrv=$("#scrv"),scrimg=$("#scrimg");
+function zApply(){
+  const cw=scrv.clientWidth,ch=scrv.clientHeight,w=scrimg.offsetWidth,h=scrimg.offsetHeight;
+  const mx=Math.max(0,(Z.z*w-cw)/2),my=Math.max(0,(Z.z*h-ch)/2);
+  Z.x=Math.max(-mx,Math.min(mx,Z.x));Z.y=Math.max(-my,Math.min(my,Z.y));
+  scrimg.style.transform=`translate(${Z.x}px,${Z.y}px) scale(${Z.z})`;
+  $("#scrz").textContent=(Math.round(Z.z*10)/10)+"×";
+}
+function zAt(nz,cx,cy){ // zoom to nz keeping the point under (cx,cy) still
+  nz=Math.max(1,Math.min(8,nz));const r=scrv.getBoundingClientRect(),px=cx-r.left-r.width/2,py=cy-r.top-r.height/2;
+  Z.x=px-nz*(px-Z.x)/Z.z;Z.y=py-nz*(py-Z.y)/Z.z;Z.z=nz;if(nz===1){Z.x=0;Z.y=0}zApply();
+}
+function zMid(nz){const r=scrv.getBoundingClientRect();zAt(nz,r.left+r.width/2,r.top+r.height/2)}
+$("#scrp").onclick=()=>zMid(Z.z*1.5);$("#scrm").onclick=()=>zMid(Z.z/1.5);$("#scrz").onclick=()=>zMid(1);
+scrv.addEventListener("wheel",e=>{e.preventDefault();zAt(Z.z*(e.deltaY<0?1.2:1/1.2),e.clientX,e.clientY)},{passive:false});
+const ptr=new Map();let pd=0,lastTap=0;
+scrv.addEventListener("pointerdown",e=>{scrv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});if(ptr.size===2){const [a,b]=[...ptr.values()];pd=Math.hypot(a.x-b.x,a.y-b.y)}
+  const n=Date.now();if(ptr.size===1&&n-lastTap<300){if(Z.z>1)zMid(1);else zAt(2.5,e.clientX,e.clientY);lastTap=0}else lastTap=n});
+scrv.addEventListener("pointermove",e=>{const p=ptr.get(e.pointerId);if(!p)return;
+  if(ptr.size===2){ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});const [a,b]=[...ptr.values()],d=Math.hypot(a.x-b.x,a.y-b.y);if(pd>0)zAt(Z.z*d/pd,(a.x+b.x)/2,(a.y+b.y)/2);pd=d;return}
+  if(Z.z>1){Z.x+=e.clientX-p.x;Z.y+=e.clientY-p.y;scrv.classList.add("pan");zApply()}
+  ptr.set(e.pointerId,{x:e.clientX,y:e.clientY})});
+const pend=e=>{ptr.delete(e.pointerId);pd=0;if(!ptr.size)scrv.classList.remove("pan")};
+scrv.addEventListener("pointerup",pend);scrv.addEventListener("pointercancel",pend);
+window.addEventListener("resize",()=>{if(!$("#scr").classList.contains("hide"))zApply()});
+/* picture quality and how long the host has been live */
+const clock=ms=>{const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/3600),m=Math.floor(s%3600/60),r=s%60,p=n=>String(n).padStart(2,"0");return(h?h+":":"")+p(m)+":"+p(r)};
+function zPaint(){
+  if($("#scr").classList.contains("hide"))return;
+  const q=!zlive||zage>4000?"poor":(zrtt<200&&zage<2500)?"good":zrtt<500?"fair":"poor";
+  $("#scrq").className=q;
+  const w=scrimg.naturalWidth,h=scrimg.naturalHeight;
+  $("#scrtxt").textContent=(!zlive||zage>4000?"Stalled":q==="good"?"Good":q==="fair"?"Fair":"Poor")+(w?" · "+w+"×"+h:"")+" · "+zfps+" fps · live "+clock(zbase+Date.now()-zt0);
+}
+async function zPoll(){
+  const t=performance.now(),r=await J("/api/screen/stat");zrtt=performance.now()-t;
+  if(r.ok){zlive=r.d.live;zbase=r.d.since;zt0=Date.now();zfps=r.d.fps;zage=r.d.age;if(!zlive){closeScr();toast("The host stopped sharing the screen");return}}
+  else zlive=false;
+  zPaint();
+}
+function openScr(){Z={z:1,x:0,y:0};zApply();zbase=0;zt0=Date.now();zage=0;zlive=true;$("#scrtxt").textContent="Connecting…";$("#scrq").className="";scrimg.src="/api/screen?"+Date.now();$("#scr").classList.remove("hide");clearInterval(zst);clearInterval(zpt);zPoll();zst=setInterval(zPoll,2000);zpt=setInterval(zPaint,1000)}
+function closeScr(){clearInterval(zst);clearInterval(zpt);scrimg.removeAttribute("src");$("#scr").classList.add("hide");if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
 $("#watch").onclick=openScr;$("#scrx").onclick=closeScr;
 $("#scrfs").onclick=()=>{const e=$("#scr");if(document.fullscreenElement)document.exitFullscreen();else if(e.requestFullscreen)e.requestFullscreen().catch(()=>toast("Full screen is not available here"))};
 $("#scrimg").onerror=()=>{if(!$("#scr").classList.contains("hide")){closeScr();toast("The host stopped sharing the screen")}};
@@ -406,7 +492,7 @@ function enter(){
   clearInterval(pinger);pinger=setInterval(ping,10000);liveBtn(!!INFO.live);
   if(window.AV&&AV.sync)AV.sync();
   if(INFO.gameOnly){show("gonly");return}
-  show("app");set("#vtog",view==="grid"?P.list:P.grid);
+  show("app");chStart();set("#vtog",view==="grid"?P.list:P.grid);
   go(hashPath(),true);
 }
 async function ping(){

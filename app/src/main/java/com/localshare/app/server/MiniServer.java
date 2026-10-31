@@ -58,6 +58,7 @@ public final class MiniServer {
         final String token, id, name, ip, device;
         final boolean host;
         volatile boolean pending;
+        volatile long lastChat;
         final long since = System.currentTimeMillis();
         volatile long lastSeen = since;
         volatile String avKey = "";
@@ -127,6 +128,17 @@ public final class MiniServer {
     private ThreadPoolExecutor pool;
     private GameHub game;
     private final StreamHub stream = new StreamHub();
+
+    private static final class ChatMsg {
+        final long id, t;
+        final String name, text;
+        final boolean host, mgr;
+        ChatMsg(long id, String name, String text, boolean host, boolean mgr) {
+            this.id = id; this.t = System.currentTimeMillis(); this.name = name; this.text = text; this.host = host; this.mgr = mgr;
+        }
+    }
+    private final java.util.ArrayList<ChatMsg> chat = new java.util.ArrayList<ChatMsg>();
+    private long chatSeq;
     private volatile Runnable onStopStream;
     private volatile boolean running;
     private int port;
@@ -789,6 +801,63 @@ public final class MiniServer {
             Runnable cb = onStopStream;
             if (cb != null) cb.run(); else stream.stop();
             json(out, false, 200, "{\"ok\":true}");
+            return true;
+        }
+        if (get && path.equals("/api/chat")) {
+            Session s = auth(r, out, isHead);
+            if (s == null) return true;
+            long after = 0;
+            try { String a = r.q.get("after"); if (a != null) after = Long.parseLong(a); } catch (NumberFormatException e) { }
+            StringBuilder sb = new StringBuilder("[");
+            long last;
+            synchronized (chat) {
+                last = chatSeq;
+                if (after > last) after = 0; // the chat was cleared since this page last asked
+                for (ChatMsg m : chat) {
+                    if (m.id <= after) continue;
+                    if (sb.length() > 1) sb.append(',');
+                    sb.append("{\"id\":").append(m.id).append(",\"t\":").append(m.t).append(",\"name\":").append(Util.q(m.name))
+                            .append(",\"text\":").append(Util.q(m.text)).append(",\"host\":").append(m.host).append(",\"mgr\":").append(m.mgr).append('}');
+                }
+            }
+            json(out, isHead, 200, "{\"last\":" + last + ",\"online\":" + (activeCount(null) + 1) + ",\"msgs\":" + sb.append(']') + "}");
+            return true;
+        }
+        if (post && path.equals("/api/chat")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!sameOrigin(r)) { json(out, false, 403, err("bad origin")); return true; }
+            String text = r.form.get("text");
+            StringBuilder cl = new StringBuilder();
+            if (text != null) for (int i = 0; i < text.length() && cl.length() < 300; i++) {
+                char c = text.charAt(i);
+                if (c >= 0x20 && c != 0x7f) cl.append(c);
+            }
+            String msg = cl.toString().trim();
+            if (msg.length() == 0) { json(out, false, 400, err("Write something first")); return true; }
+            long now = System.currentTimeMillis();
+            if (now - s.lastChat < 600) { json(out, false, 429, err("Slow down a little")); return true; }
+            s.lastChat = now;
+            synchronized (chat) {
+                chat.add(new ChatMsg(++chatSeq, s.name, msg, s.host, !s.host && mgr(s)));
+                while (chat.size() > 200) chat.remove(0);
+            }
+            json(out, false, 200, "{\"ok\":true}");
+            return true;
+        }
+        if (post && path.equals("/api/chat/clear")) {
+            Session s = auth(r, out, false);
+            if (s == null) return true;
+            if (!adm(s) || !sameOrigin(r)) { json(out, false, 403, err("Only the host can clear the chat")); return true; }
+            synchronized (chat) { chat.clear(); chatSeq = 0; }
+            json(out, false, 200, "{\"ok\":true}");
+            return true;
+        }
+        if (get && path.equals("/api/screen/stat")) {
+            if (auth(r, out, isHead) == null) return true;
+            long st = stream.startedAt();
+            json(out, isHead, 200, "{\"live\":" + stream.isLive() + ",\"since\":" + (st == 0 ? 0 : System.currentTimeMillis() - st)
+                    + ",\"fps\":" + stream.fps() + ",\"age\":" + Math.min(stream.frameAge(), 600000L) + ",\"viewers\":" + stream.viewers() + "}");
             return true;
         }
         if (get && path.equals("/api/screen")) {

@@ -447,6 +447,27 @@ public class Harness {
         hub.stop();
         ac.disconnect();
         check("stopping ends the live flag", req("GET", "/api/info", m, null).text().contains("\"live\":false"));
+        System.out.println("== live chat + stream stats");
+        String cg = login("dev-c1", "", "Cleo");
+        check("chat starts empty", req("GET", "/api/chat?after=0", cg, null).text().contains("\"msgs\":[]"));
+        check("a guest can post", req("POST", "/api/chat", cg, "text=hello%20all", "Origin", O).code == 200);
+        check("empty message refused", req("POST", "/api/chat", cg, "text=%20%20", "Origin", O).code == 400);
+        check("posting too fast is slowed down", req("POST", "/api/chat", cg, "text=again", "Origin", O).code == 429);
+        Thread.sleep(700);
+        req("POST", "/api/chat", host, "text=welcome", "Origin", O);
+        String chj = req("GET", "/api/chat?after=0", cg, null).text();
+        check("everyone sees the messages with who sent them", chj.contains("hello all") && chj.contains("Cleo") && chj.contains("welcome") && chj.contains("\"host\":true"));
+        check("after= only returns newer messages", !req("GET", "/api/chat?after=1", cg, null).text().contains("hello all"));
+        check("chat needs a sign-in", req("GET", "/api/chat?after=0", null, null).code == 401);
+        check("guests cannot clear the chat", req("POST", "/api/chat/clear", cg, "", "Origin", O).code == 403);
+        check("host clears the chat", req("POST", "/api/chat/clear", host, "", "Origin", O).code == 200 && req("GET", "/api/chat?after=0", cg, null).text().contains("\"msgs\":[]"));
+        check("stream stat is reachable and idle", req("GET", "/api/screen/stat", cg, null).text().contains("\"live\":false"));
+        com.localshare.app.server.StreamHub h2 = s.stream();
+        h2.start(24000, 2);
+        for (int i = 0; i < 6; i++) { h2.pushFrame(new byte[]{1}); Thread.sleep(250); }
+        String stj = req("GET", "/api/screen/stat", cg, null).text();
+        check("stream stat reports live, time and frame rate", stj.contains("\"live\":true") && stj.contains("\"since\":") && !stj.contains("\"fps\":0,") && stj.contains("\"age\":"));
+        h2.stop();
         System.out.println("== per-device game only");
         s.setPerms(sid(s, "Pat"), ServerConfig.P_GAME_ONLY | ServerConfig.P_DELETE);
         check("game-only device cannot list -> 403", req("GET", "/api/list?path=", t2, null).code == 403);
