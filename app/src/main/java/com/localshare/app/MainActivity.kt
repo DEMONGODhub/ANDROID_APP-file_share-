@@ -20,6 +20,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -118,13 +119,13 @@ private fun App() {
                 unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Share") }, colors = nav)
-                NavigationBarItem(tab == 1, { tab = 1 }, {
+                NavigationBarItem(tab == 0, { tab = 0 }, { NavIcon(tab == 0) { Icon(Icons.Filled.Home, null) } }, label = { Text("Share") }, colors = nav)
+                NavigationBarItem(tab == 1, { tab = 1 }, { NavIcon(tab == 1) {
                     BadgedBox(badge = { if (st.waiting.isNotEmpty()) Badge { Text("${st.waiting.size}") } else if (st.devices.isNotEmpty()) Badge { Text("${st.devices.size}") } }) { Icon(Icons.Filled.Person, null) }
-                }, label = { Text("Devices") }, colors = nav)
-                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(painterResource(R.drawable.ic_gamepad), null) }, label = { Text("Game") }, colors = nav)
-                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Activity") }, colors = nav)
-                NavigationBarItem(tab == 4, { tab = 4 }, { Icon(Icons.Filled.Settings, null) }, label = { Text("Settings") }, colors = nav)
+                } }, label = { Text("Devices") }, colors = nav)
+                NavigationBarItem(tab == 2, { tab = 2 }, { NavIcon(tab == 2) { Icon(painterResource(R.drawable.ic_gamepad), null) } }, label = { Text("Game") }, colors = nav)
+                NavigationBarItem(tab == 3, { tab = 3 }, { NavIcon(tab == 3) { Icon(Icons.Filled.Info, null) } }, label = { Text("Activity") }, colors = nav)
+                NavigationBarItem(tab == 4, { tab = 4 }, { NavIcon(tab == 4) { Icon(Icons.Filled.Settings, null) } }, label = { Text("Settings") }, colors = nav)
             }
           }
         },
@@ -146,6 +147,15 @@ private fun App() {
     }
 }
 
+/** Icons spring a little when their tab is picked. */
+@Composable
+private fun NavIcon(selected: Boolean, content: @Composable () -> Unit) {
+    val s by androidx.compose.animation.core.animateFloatAsState(
+        if (selected) 1.2f else 1f, androidx.compose.animation.core.spring(dampingRatio = 0.4f, stiffness = 500f), label = "nav",
+    )
+    Box(Modifier.graphicsLayer { scaleX = s; scaleY = s }) { content() }
+}
+
 /** YouTube-style top bar: logo tile and name on the left, a LIVE pill and settings on the right. */
 @Composable
 private fun AppBar(running: Boolean, devices: Int) {
@@ -162,10 +172,20 @@ private fun AppBar(running: Boolean, devices: Int) {
         Box(
             Modifier.clip(RoundedCornerShape(50)).background(if (running) c.primary else c.surfaceContainerHigh).padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            Text(
-                if (running) "LIVE · $devices" else "OFF", fontWeight = FontWeight.Bold,
-                color = if (running) c.onPrimary else c.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (running) {
+                    val pulse by androidx.compose.animation.core.rememberInfiniteTransition(label = "live").animateFloat(
+                        0.25f, 1f,
+                        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900), androidx.compose.animation.core.RepeatMode.Reverse), label = "dot",
+                    )
+                    Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(c.onPrimary.copy(alpha = pulse)))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    if (running) "LIVE · $devices" else "OFF", fontWeight = FontWeight.Bold,
+                    color = if (running) c.onPrimary else c.onSurfaceVariant, style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
         Spacer(Modifier.width(10.dp))
     }

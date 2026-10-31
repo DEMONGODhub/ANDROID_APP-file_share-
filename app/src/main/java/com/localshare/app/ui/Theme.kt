@@ -12,17 +12,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Black and soft gold. The web page uses the same family (assets/web/index.html).
+// Onyx and yellow. The web page uses the same family (assets/web/index.html).
 private val Dark = darkColorScheme(
-    primary = Color(0xFFF2C230), onPrimary = Color(0xFF1A1400),
-    primaryContainer = Color(0xFF2A2208), onPrimaryContainer = Color(0xFFF2D77A),
-    secondary = Color(0xFFD9A400), onSecondary = Color(0xFF000000),
-    background = Color(0xFF000000), onBackground = Color(0xFFF7F3DC),
-    surface = Color(0xFF0A0A0A), onSurface = Color(0xFFF7F3DC),
-    surfaceVariant = Color(0xFF1B1B1B), onSurfaceVariant = Color(0xFFA7A27A),
-    surfaceContainerLowest = Color(0xFF000000), surfaceContainerLow = Color(0xFF0A0A0A),
-    surfaceContainer = Color(0xFF111111), surfaceContainerHigh = Color(0xFF181818), surfaceContainerHighest = Color(0xFF212121),
-    outline = Color(0xFF34310F), outlineVariant = Color(0xFF26240B),
+    primary = Color(0xFFFFD60A), onPrimary = Color(0xFF1A1400),
+    primaryContainer = Color(0xFF2E2A10), onPrimaryContainer = Color(0xFFFFE680),
+    secondary = Color(0xFFFFC400), onSecondary = Color(0xFF000000),
+    background = Color(0xFF0C0C0D), onBackground = Color(0xFFF2F2F0),
+    surface = Color(0xFF111113), onSurface = Color(0xFFF2F2F0),
+    surfaceVariant = Color(0xFF1E1E21), onSurfaceVariant = Color(0xFF9B9BA2),
+    surfaceContainerLowest = Color(0xFF0C0C0D), surfaceContainerLow = Color(0xFF111113),
+    surfaceContainer = Color(0xFF19191B), surfaceContainerHigh = Color(0xFF222225), surfaceContainerHighest = Color(0xFF2C2C30),
+    outline = Color(0xFF38383D), outlineVariant = Color(0xFF2A2A2E),
     error = Color(0xFFF0745F), onError = Color(0xFF2A0A05),
 )
 

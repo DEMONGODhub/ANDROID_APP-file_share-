@@ -23,6 +23,9 @@ data class SharedFolder(val uri: String, val name: String)
 data class BlockedDevice(val id: String, val name: String, val ip: String)
 data class LogLine(val time: Long, val kind: String, val who: String, val detail: String)
 
+/** How much the shared folders hold, against the phone's own storage. */
+data class StorageInfo(val sharedBytes: Long = 0, val files: Int = 0, val folders: Int = 0, val total: Long = 0, val free: Long = 0, val counting: Boolean = false, val partial: Boolean = false)
+
 data class UiState(
     val running: Boolean = false,
     val port: Int = 8080,
@@ -35,6 +38,7 @@ data class UiState(
     val askToJoin: Boolean = false,
     val casting: Boolean = false,
     val viewers: Int = 0,
+    val storage: StorageInfo = StorageInfo(),
     val blocks: List<BlockedDevice> = emptyList(),
     val log: List<LogLine> = emptyList(),
     val password: String = "",
@@ -58,6 +62,8 @@ object ShareController {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> get() = _state
     private var ready = false
+    @Volatile private var storage = StorageInfo()
+    @Volatile private var measuring = false
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -126,6 +132,7 @@ object ShareController {
     private fun applyFolders() {
         server?.setFileSource(buildSource())
         refresh()
+        measure()
     }
 
     private fun folderName(uri: String): String = try {
@@ -138,6 +145,37 @@ object ShareController {
         val mounts = LinkedHashMap<String, FileSource>()
         for (f in prefs.folders) mounts[CompositeFileSource.mountName(folderName(f), used)] = SafFileSource(app, Uri.parse(f))
         return CompositeFileSource(mounts)
+    }
+
+    /** Adds up the size of everything shared, off the main thread (stops after 25 s on huge folders and says so). */
+    fun measure() {
+        if (measuring || !ready) return
+        measuring = true
+        storage = storage.copy(counting = true)
+        refresh()
+        Thread {
+            var bytes = 0L; var files = 0; var dirs = 0; var partial = false
+            val deadline = System.currentTimeMillis() + 25000
+            try {
+                val src = buildSource()
+                fun walk(p: List<String>) {
+                    if (System.currentTimeMillis() > deadline) { partial = true; return }
+                    val list = try { src.list(p) } catch (e: Exception) { null } ?: return
+                    for (e in list) if (e.dir) { dirs++; walk(p + e.name) } else { files++; bytes += e.size }
+                }
+                if (prefs.folders.isNotEmpty()) walk(emptyList())
+            } catch (e: Exception) { }
+            var total = 0L; var free = 0L
+            try {
+                val st = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+                total = st.totalBytes; free = st.availableBytes
+            } catch (e: Exception) { }
+            main.post {
+                storage = StorageInfo(bytes, files, dirs, total, free, counting = false, partial = partial)
+                measuring = false
+                refresh()
+            }
+        }.start()
     }
 
     fun deviceGameOk(): Boolean = prefs.gameEnabled || prefs.gameOnly
@@ -195,6 +233,7 @@ object ShareController {
             askToJoin = cfg.askToJoin,
             casting = CastService.active && s != null,
             viewers = s?.stream()?.viewers() ?: 0,
+            storage = storage,
             blocks = cfg.blocks().map { BlockedDevice(it.id, it.name, it.ip) },
             log = if (s != null) cfg.log.recent().take(100).map { LogLine(it.time, it.kind, it.who, it.detail) } else emptyList(),
             password = cfg.password,

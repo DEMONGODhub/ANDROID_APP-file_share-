@@ -15,6 +15,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -118,6 +119,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit, onCast: () -> Unit, onJoin:
         }
     }
 
+    LaunchedEffect(Unit) { ShareController.measure() }
     val ls = rememberLazyListState()
     val scope = rememberCoroutineScope()
     var chip by remember { mutableStateOf(0) }
@@ -135,7 +137,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit, onCast: () -> Unit, onJoin:
                         selected = chip == i,
                         onClick = {
                             chip = i
-                            scope.launch { ls.animateScrollToItem(if (i == 4) maxOf(0, ls.layoutInfo.totalItemsCount - 1) else i) }
+                            scope.launch { ls.animateScrollToItem(if (i == 4) maxOf(0, ls.layoutInfo.totalItemsCount - 1) else intArrayOf(0, 1, 3, 4)[i]) }
                         },
                         label = { Text(label, fontWeight = FontWeight.SemiBold) },
                         shape = RoundedCornerShape(50),
@@ -150,6 +152,7 @@ fun HomeScreen(st: UiState, openBrowser: () -> Unit, onCast: () -> Unit, onJoin:
             }
         }
         item { StatusCard(st, ::start, { if (st.devices.isEmpty()) ShareService.stop(ctx) else confirmStop = true }, { u -> clip.setText(AnnotatedString(u)); android.widget.Toast.makeText(ctx, "Link copied", android.widget.Toast.LENGTH_SHORT).show() }) }
+        item { StorageCard(st) }
         item { FoldersCard(st, { picker.launch(null) }) }
         item { ScreenCard(st, onCast) }
         item { JoinCard(onJoin) }
@@ -375,5 +378,50 @@ private fun JoinCard(onJoin: (String) -> Unit) {
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(onGo = { if (link.isNotBlank()) onJoin(link) }),
         )
         Button({ onJoin(link) }, Modifier.fillMaxWidth().heightIn(min = 48.dp), enabled = link.isNotBlank()) { Text("Open") }
+    }
+}
+
+/** The circle: how much of this phone's storage is being shared. */
+@Composable
+private fun StorageCard(st: UiState) {
+    val ctx = LocalContext.current
+    val s = st.storage
+    val total = s.total.coerceAtLeast(1L)
+    val used = (s.total - s.free).coerceAtLeast(0L)
+    val otherBytes = (used - s.sharedBytes).coerceAtLeast(0L)
+    fun sz(b: Long) = android.text.format.Formatter.formatShortFileSize(ctx, b)
+    SectionCard {
+        Text("Storage shared", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StorageRing(s.sharedBytes.toFloat() / total, otherBytes.toFloat() / total, 140.dp, Modifier.clickable { ShareController.measure() }) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (s.counting && s.sharedBytes == 0L) "…" else sz(s.sharedBytes), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                    Text(if (s.total > 0) "of ${sz(s.total)}" else "shared", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(Modifier.width(18.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Legend(MaterialTheme.colorScheme.primary, "Shared", sz(s.sharedBytes))
+                Legend(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), "Other on phone", sz(otherBytes))
+                Legend(MaterialTheme.colorScheme.surfaceContainerHighest, "Free", sz(s.free))
+            }
+        }
+        Text(
+            if (s.counting) "Counting your shared files…"
+            else "${s.files} files in ${s.folders} folders${if (s.partial) " (still counting, huge folder)" else ""}. Tap the circle to recount.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+@Composable
+private fun Legend(color: androidx.compose.ui.graphics.Color, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).background(color, androidx.compose.foundation.shape.CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(value, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
